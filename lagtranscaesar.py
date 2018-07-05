@@ -4,7 +4,10 @@ Replacement for the LagTrans library with Caesar.
 
 import caesar
 import h5py
-import numba
+import numpy as np
+
+from scipy.spatial import cKDTree as KDTree
+from collections import namedtuple
 
 
 class DMParticles(object):
@@ -24,42 +27,43 @@ class DMParticles(object):
         self.n_parts = len(particles["ParticleIDs"])
 
         if halo_catalogue is not None:
-            self.haloes = self.get_all_particle_references()
+            self.halos = self.get_all_particle_references()
 
-        # We may in the future need to ensure only the particles in the haloes
+        # We may in the future need to ensure only the particles in the halos
         # have their data read.
         self.ids = self.read_array("ParticleIDs")
         self.masses = self.read_array("Masses")
         self.coordinates = self.read_array("Coordinates")
 
+        self.sort_data()
+
         return
 
-    @numba.jit
     def get_all_particle_references(self):
         """
         Gets an nparticle long array that denotes which halo all of the dark matter
-        particles belongs to. Particles that do not reside in haloes have their
+        particles belongs to. Particles that do not reside in halos have their
         value set to -1.
         """
 
         # Allocate our final output array
-        haloes = np.empty(self.n_parts)
-        haloes[...] = -1  # Default value for all particles _not_ in halos
+        halos = np.empty(self.n_parts)
+        halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
         particles_in_halos = [halo.dmlist for halo in self.halo_catalogue]
-        copied_haloes = [
+        copied_halos = [
             np.repeat(halo.GroupID, halo.ndm) for halo in self.halo_catalogue
         ]
 
-        flattened_particles = numpy.concatenate(particles_in_halos)
+        flattened_particles = np.concatenate(particles_in_halos)
         del particles_in_halos
-        flattened_halos = numpy.concatenate(copied_haloes)
-        del copied_haloes
+        flattened_halos = np.concatenate(copied_halos)
+        del copied_halos
 
-        haloes.put(flattened_particles, flattened_halos)
+        halos.put(flattened_particles, flattened_halos)
 
-        return haloes
+        return halos
 
     def read_array(self, name: str):
         """
@@ -67,6 +71,23 @@ class DMParticles(object):
         """
 
         return self.particles[name][...]
+
+    def sort_data(self):
+        """
+        Sorts the data by ParticleID.
+        """
+
+        indicies = np.argsort(self.ids)
+
+        # Actually perform data transformation.
+
+        self.halos = self.halos[indicies]
+
+        self.ids = self.ids[indicies]
+        self.masses = self.masses[indicies]
+        self.coordinates = self.coordinates[indicies]
+
+        return
 
 
 class BaryonicParticles(object):
@@ -88,12 +109,12 @@ class BaryonicParticles(object):
         self.halo_catalogue = halo_catalogue
 
         self.n_gas_parts = len(gas_particles["ParticleIDs"])
-        self.n_star_parts = len(gas_particles["ParticleIDs"])
-        self.n_bh_parts = len(gas_particles["ParticleIDs"])
+        self.n_star_parts = len(star_particles["ParticleIDs"])
+        self.n_bh_parts = len(bh_particles["ParticleIDs"])
 
         if halo_catalogue is not None:
-            self.gas_haloes, self.star_haloes, self.bh_haloes = (
-                get_all_particle_references()
+            self.gas_halos, self.star_halos, self.bh_halos = (
+                self.get_all_particle_references()
             )
 
         # Now we read a bunch of particle properties.
@@ -110,84 +131,153 @@ class BaryonicParticles(object):
         self.star_coordinates = self.star_particles["Coordinates"][...]
         self.bh_coordinates = self.bh_particles["Coordinates"][...]
 
+        self.sort_data()
+
         return
 
-    @numba.jit
+    def sort_data(self):
+        """
+        Sorts the data by ParticleID.
+        """
+
+        gas_indicies = np.argsort(self.gas_ids)
+        star_indicies = np.argsort(self.star_ids)
+        bh_indicies = np.argsort(self.bh_ids)
+
+        # Actually perform data transformation.
+
+        self.gas_halos = self.halos[gas_indicies]
+        self.star_halos = self.halos[star_indicies]
+        self.bh_halos = self.halos[bh_indicies]
+
+        self.gas_ids = self.gas_ids[gas_indicies]
+        self.star_ids = self.star_ids[star_indicies]
+        self.bh_ids = self.bh_ids[bh_indicies]
+
+        self.gas_masses = self.gas_masses[gas_indicies]
+        self.star_masses = self.star_masses[star_indicies]
+        self.bh_masses = self.bh_masses[bh_indicies]
+
+        self.gas_coordinates = self.gas_coordinates[gas_indicies]
+        self.star_coordinates = self.star_coordinates[star_indicies]
+        self.bh_coordinates = self.bh_coordinates[bh_indicies]
+
+        return
+
     def get_all_particle_references(self):
         """
         Gets three nparticle long array that denotes which halo all of the
-        particles belongs to. Particles that do not reside in haloes have their
+        particles belongs to. Particles that do not reside in halos have their
         value set to -1.
 
         Yes, this function breaks DRY, but that's for memory efficiency.
         """
 
         # Allocate our final output array
-        gas_haloes = np.empty(self.n_gas_parts)
-        gas_haloes[...] = -1  # Default value for all particles _not_ in halos
+        gas_halos = np.empty(self.n_gas_parts)
+        gas_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
         particles_in_halos = [galaxy.glist for galaxy in self.halo_catalogue]
-        copied_haloes = [
+        copied_halos = [
             np.repeat(galaxy.GroupID, galaxy.ngas) for galaxy in self.halo_catalogue
         ]
 
-        flattened_particles = numpy.concatenate(particles_in_halos)
+        flattened_particles = np.concatenate(particles_in_halos)
         del particles_in_halos
-        flattened_halos = numpy.concatenate(copied_haloes)
-        del copied_haloes
+        flattened_halos = np.concatenate(copied_halos)
+        del copied_halos
 
-        gas_haloes.put(flattened_particles, flattened_halos)
+        gas_halos.put(flattened_particles, flattened_halos)
 
         del flattened_particles
-        del flattened_haloes
+        del flattened_halos
 
         # Now for stars
-        star_haloes = np.empty(self.n_star_parts)
-        star_haloes[...] = -1  # Default value for all particles _not_ in halos
+        star_halos = np.empty(self.n_star_parts)
+        star_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
         particles_in_halos = [galaxy.slist for galaxy in self.halo_catalogue]
-        copied_haloes = [
+        copied_halos = [
             np.repeat(galaxy.GroupID, galaxy.nstar) for galaxy in self.halo_catalogue
         ]
 
-        flattened_particles = numpy.concatenate(particles_in_halos)
+        flattened_particles = np.concatenate(particles_in_halos)
         del particles_in_halos
-        flattened_halos = numpy.concatenate(copied_haloes)
-        del copied_haloes
+        flattened_halos = np.concatenate(copied_halos)
+        del copied_halos
 
-        star_haloes.put(flattened_particles, flattened_halos)
+        star_halos.put(flattened_particles, flattened_halos)
 
         del flattened_particles
-        del flattened_haloes
+        del flattened_halos
 
         # Now for BHs
-        bh_haloes = np.empty(self.n_bh_parts)
-        bh_haloes[...] = -1  # Default value for all particles _not_ in halos
+        # This is not currently implemented
+        bh_halos = None
 
-        # Grab all references
-        particles_in_halos = [galaxy.bhlist for galaxy in self.halo_catalogue]
-        copied_haloes = [
-            np.repeat(galaxy.GroupID, galaxy.nbh) for galaxy in self.halo_catalogue
-        ]
+        return gas_halos, star_halos, bh_halos
 
-        flattened_particles = numpy.concatenate(particles_in_halos)
-        del particles_in_halos
-        flattened_halos = numpy.concatenate(copied_haloes)
-        del copied_haloes
+    def parse_lagrangian_regions(self, ids: np.ndarray, lagrangian_regions: np.ndarray):
+        """
+        Parse the Lagrangian regions so that they "line up" with the z=0 particles.
+        We must do this as some particles have been changed to become stars.
+        """
 
-        bh_haloes.put(flattened_particles, flattened_halos)
+        # This could be quite slow. It is only a linear pass over the particles
+        # though, as we can assume the arrays are sorted by ID.
 
-        del flattened_particles
-        del flattened_haloes
+        gas_lagrangian_regions = np.empty_like(self.gas_ids)
+        star_lagrangian_regions = np.empty_like(self.star_ids)
 
-        return gas_haloes, star_haloes, bh_haloes
+        gas_current_index = 0
+        star_current_index = 0
+
+        try:
+            gas_current_id = self.gas_ids[gas_current_index]
+        except IndexError:
+            raise IndexError("lagtranscaesar: Unable to index the gas ID array.")
+
+        try:
+            star_current_id = self.star_ids[star_current_index]
+        except IndexError:
+            print("No star particles found. Consider checking this.")
+            gas_lagrangian_regions = lagrangian_regions
+
+        for lr, particle_id in zip(lagrangian_regions, ids):
+            if particle_id == gas_current_id:
+                gas_lagrangian_regions[gas_current_index] = lr
+                gas_current_index += 1
+
+                try:
+                    gas_current_id = self.gas_ids[gas_current_index]
+                except IndexError:
+                    # We must have reached the end of the current ids.
+                    assert gas_current_index == len(gas_lagrangian_regions)
+
+            elif particle_id == star_current_id:
+                star_lagrangian_regions[star_current_index] = lr
+                star_current_index += 1
+
+                try:
+                    star_current_id = self.star_ids[star_current_index]
+                except IndexError:
+                    assert star_current_index == len(star_lagrangian_regions)
+
+            else:
+                # Must be in a black hole. We currently don't deal with those.
+                continue
+
+        self.gas_lagrangian_regions = gas_lagrangian_regions
+        self.star_lagrangian_regions = star_lagrangian_regions
+
+        return
 
 
-class Simulation(object):
+class Snapshot(object):
     """
-    Simulation container for both the baryonic and DM particle data.
+    Snapshot container for both the baryonic and DM particle data.
     """
 
     def __init__(self, snapshot_filename, catalogue_filename=None):
@@ -201,14 +291,106 @@ class Simulation(object):
         if catalogue_filename is not None:
             halo_catalogue = caesar.load(catalogue_filename)
         else:
-            halo_catalogue = None
+            # We need halo_catalogue.halos = None and halo_catalogue.galaxies = None
+            # for simplicity, and also extensibility perhaps for later.
+            catalogue = namedtuple("EmptyHaloCatalogue", ["halos", "galaxies"])
+            halo_catalogue = catalogue._make([None, None])
 
-        self.dark_matter = DMParticles(particle_data["PartType1"], halo_catalogue)
+        self.dark_matter = DMParticles(particle_data["PartType1"], halo_catalogue.halos)
         self.baryonic_matter = BaryonicParticles(
             particle_data["PartType0"],
-            particle_data["PartType3"],
+            particle_data["PartType4"],
             particle_data["PartType5"],
-            halo_catalogue,
+            halo_catalogue.galaxies,
         )
 
         return
+
+
+class Simulation(object):
+    """
+    Simulation container for both the z=0 and z->infty snapshots. This also
+    contains the relevant routines for the data reduction.
+    """
+
+    def __init__(self, snapshot_ini: Snapshot, snapshot_end: Snapshot):
+        """
+        Snapshot_ini is the initial conidtions, with snapshot_end the z=0 snap.
+        """
+
+        self.snapshot_ini = snapshot_ini
+        self.snapshot_end = snapshot_end
+
+        return
+
+    def identify_lagrangian_regions(self):
+        """
+        Identifies the lagrangian regions based on the given snapshots.
+        
+        This performs a nearest-neighbour search after building a kd-tree
+        so may take some time.
+        """
+
+        boxsize = self.snapshot_ini.header["Boxsize"]
+
+        tree = KDTree(self.snapshot_ini.dark_matter.coordinates, boxsize=boxsize)
+
+        _, ids = tree.query(self.snapshot_ini.baryonic_matter.coordinates, n=1)
+
+        # This requires the data to be sorted by ParticleID.
+        # First we'll assert we have the same number.
+        assert len(self.snapshot_end.dark_matter.ids) == len(
+            self.snapshot_ini.dark_matter.ids
+        )
+        assert (
+            self.snapshot_end.dark_matter.ids[-1]
+            == self.snapshot_ini.dark_matter.ids[-1]
+        )
+        self.lagrangian_regions = self.snapshot_end.halos[ids]
+
+        # This could cause problems if we ever have stars in the ICs
+        self.snapshot_end.baryonic_matter.parse_lagrangian_regions(
+            self.snapshot_ini.baryonic_matter.gas_ids, self.lagrangian_regions
+        )
+
+        return
+
+    def prepare_analysis_arrays(self):
+        """
+        Allocates the analysis arrays.
+        """
+
+        self.n_halos = self.snapshot_end.dark_matter.halo_catalogue.nhalos
+
+        # The total mass that ends up in the z=0 halo.
+        self.dark_matter_mass_in_halo = np.zeros(self.n_halos)
+        self.gas_mass_in_halo = np.zeros(self.n_halos)
+        self.stellar_mass_in_halo = np.zeros(self.n_halos)
+
+        # The total mass at z=inf inside the lagrangian region of the halo
+        self.dark_matter_mass_in_lagrangian = np.zeros(self.n_halos)
+        self.gas_mass_in_lagrangian = np.zeros(self.n_halos)
+        self.stellar_mass_in_lagrangian = np.zeros(self.n_halos)
+
+        # The total mass at z=0 that ends up in the halo from the lagragnain region
+        self.dark_matter_mass_in_halo_from_lagrangian = np.zeros(self.n_halos)
+        self.gas_mass_in_halo_from_lagrangian = np.zeros(self.n_halos)
+        self.stellar_mass_in_halo_from_lagrangian = np.zeros(self.n_halos)
+
+        # The total mass at z=0 that ends up in the halo from outside the lagrangian
+        # region
+        self.dark_matter_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_halos)
+        self.gas_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_halos)
+        self.stellar_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_halos)
+
+        # The total mass at z=0 that ends up in the halo from other halos lagrangian
+        # regions
+        self.dark_matter_mass_in_halo_from_other_lagrangian = np.zeros(self.n_halos)
+        self.gas_mass_in_halo_from_other_lagrangian = np.zeros(self.n_halos)
+        self.stellar_mass_in_halo_from_other_lagrangian = np.zeros(self.n_halos)
+
+        # The total mass at z=0 from the original lagrangian region that ends up
+        # outside any lagrangian regions
+        self.dark_matter_mass_outside_halo_from_lagrangian = np.zeros(self.n_halos)
+        self.gas_mass_outside_halo_from_lagrangian = np.zeros(self.n_halos)
+        self.stellar_mass_outside_halo_from_lagrangian = np.zeros(self.n_halos)
