@@ -1,5 +1,11 @@
 """
 Replacement for the LagTrans library with Caesar.
+
+This library was originally written by Daniel Angles-Alcazar to use the AHF
+halo-finder library, but it was re-written in early July 2018 at the Kavli
+Summer Program in Astrophysics by Josh Borrow (joshua.borrow@durham.ac.uk).
+
+Full documentation for the library can be found in README.md.
 """
 
 import caesar
@@ -20,15 +26,17 @@ from collections import namedtuple
 
 class DMParticles(object):
     """
-    Reads the DM particles.
+    Reads the DM particles, and sorts them by their ParticleID.
     """
 
     def __init__(self, particles, halo_catalogue=None):
         """
         Takes the particles in PartType1 (the reference to it from h5py) and the
         halos catalogue from caesar.
-        """
 
+        Note that this should be passed ceasar.load().halos for halo_catalogue,
+        and file["/PartType1/"] for the particles.
+        """
         self.particles = particles
         self.halo_catalogue = halo_catalogue
 
@@ -104,7 +112,8 @@ class DMParticles(object):
 
 class BaryonicParticles(object):
     """
-    Holder class for the baryonic particles.
+    Holder class for the baryonic particles. This also does the re-jigging to try
+    and figure out where the gas particles went (they formed stars or BHs).
     """
 
     def __init__(
@@ -267,6 +276,10 @@ class BaryonicParticles(object):
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
 
+        # It is unclear if this fully works at the moment. We really need to parse
+        # the stellar IDs first before doing this. We may also break things by sorting
+        # in that way, but I would hope not as the gas particles are still contiguous.            
+
         for lr, particle_id in zip(tqdm(lagrangian_regions, desc="Parsing LR"), ids):
             if particle_id == gas_current_id:
                 gas_lagrangian_regions[gas_current_index] = lr
@@ -306,7 +319,8 @@ class BaryonicParticles(object):
 
 class Snapshot(object):
     """
-    Snapshot container for both the baryonic and DM particle data.
+    Snapshot container for both the baryonic and DM particle data, as well as the
+    halo catalogue. Pass two of these to Simulation to run the analysis.
     """
 
     def __init__(self, snapshot_filename, catalogue_filename=None):
@@ -364,6 +378,9 @@ class Simulation(object):
         
         This performs a nearest-neighbour search after building a kd-tree
         so may take some time.
+
+        We identify the lagrangian regions by associating the z=ini gas particle
+        with the GroupID of the nearest DM z=ini particle at z=end.
         """
 
         boxsize = self.snapshot_ini.header["BoxSize"]
@@ -400,39 +417,42 @@ class Simulation(object):
         """
 
         self.n_halos = self.snapshot_end.halo_catalogue.nhalos
+        # Because we have -1 as the group_id, we want to have that information saved
+        # in the final array element - hence we overallocate by 1.
+        self.n_groups = self.n_halos + 1
 
         # The total mass that ends up in the z=0 halo.
-        self.dark_matter_mass_in_halo = np.zeros(self.n_halos)
-        self.gas_mass_in_halo = np.zeros(self.n_halos)
-        self.stellar_mass_in_halo = np.zeros(self.n_halos)
+        self.dark_matter_mass_in_halo = np.zeros(self.n_groups)
+        self.gas_mass_in_halo = np.zeros(self.n_groups)
+        self.stellar_mass_in_halo = np.zeros(self.n_groups)
 
         # The total mass at z=inf inside the lagrangian region of the halo
-        self.dark_matter_mass_in_lagrangian = np.zeros(self.n_halos)
-        self.gas_mass_in_lagrangian = np.zeros(self.n_halos)
-        self.stellar_mass_in_lagrangian = np.zeros(self.n_halos)
+        self.dark_matter_mass_in_lagrangian = np.zeros(self.n_groups)
+        self.gas_mass_in_lagrangian = np.zeros(self.n_groups)
+        self.stellar_mass_in_lagrangian = np.zeros(self.n_groups)
 
         # The total mass at z=0 that ends up in the halo from the lagragnain region
-        self.dark_matter_mass_in_halo_from_lagrangian = np.zeros(self.n_halos)
-        self.gas_mass_in_halo_from_lagrangian = np.zeros(self.n_halos)
-        self.stellar_mass_in_halo_from_lagrangian = np.zeros(self.n_halos)
+        self.dark_matter_mass_in_halo_from_lagrangian = np.zeros(self.n_groups)
+        self.gas_mass_in_halo_from_lagrangian = np.zeros(self.n_groups)
+        self.stellar_mass_in_halo_from_lagrangian = np.zeros(self.n_groups)
 
         # The total mass at z=0 that ends up in the halo from outside the lagrangian
         # region
-        self.dark_matter_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_halos)
-        self.gas_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_halos)
-        self.stellar_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_halos)
+        self.dark_matter_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_groups)
+        self.gas_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_groups)
+        self.stellar_mass_in_halo_from_outside_lagrangian = np.zeros(self.n_groups)
 
         # The total mass at z=0 that ends up in the halo from other halos lagrangian
         # regions
-        self.dark_matter_mass_in_halo_from_other_lagrangian = np.zeros(self.n_halos)
-        self.gas_mass_in_halo_from_other_lagrangian = np.zeros(self.n_halos)
-        self.stellar_mass_in_halo_from_other_lagrangian = np.zeros(self.n_halos)
+        self.dark_matter_mass_in_halo_from_other_lagrangian = np.zeros(self.n_groups)
+        self.gas_mass_in_halo_from_other_lagrangian = np.zeros(self.n_groups)
+        self.stellar_mass_in_halo_from_other_lagrangian = np.zeros(self.n_groups)
 
         # The total mass at z=0 from the original lagrangian region that ends up
         # outside any lagrangian regions
-        self.dark_matter_mass_outside_halo_from_lagrangian = np.zeros(self.n_halos)
-        self.gas_mass_outside_halo_from_lagrangian = np.zeros(self.n_halos)
-        self.stellar_mass_outside_halo_from_lagrangian = np.zeros(self.n_halos)
+        self.dark_matter_mass_outside_halo_from_lagrangian = np.zeros(self.n_groups)
+        self.gas_mass_outside_halo_from_lagrangian = np.zeros(self.n_groups)
+        self.stellar_mass_outside_halo_from_lagrangian = np.zeros(self.n_groups)
 
     def run_gas_analysis(self):
         """
@@ -588,7 +608,16 @@ class Simulation(object):
 
     def write_reduced_data(self, filename: str):
         """
-        Writes out the reduced data as a table to a file.
+        Writes out the reduced data as a table to files.
+
+        You will be presented with three CSV files:
+
+        + gas_{filename}
+        + stellar_{filename}
+        + dark_matter_{filename} (meant to be a null test)
+
+        These can then be used for data reduction again - you can even get the
+        HMF from these files.
         """
 
         attributes = [
