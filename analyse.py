@@ -36,7 +36,7 @@ simulation.run_star_analysis()
 print("Running DM analysis")
 simulation.run_dark_matter_analysis()
 
-simulation.write_reduced_data("test.txt")
+simulation.write_reduced_data("lagrangian_transfer.txt")
 
 
 exit(0)
