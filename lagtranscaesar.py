@@ -9,7 +9,10 @@ import numpy as np
 try:
     from tqdm import tqdm
 except ImportError:
-    def tqdm(x, **kwargs): return x
+
+    def tqdm(x, **kwargs):
+        return x
+
 
 from scipy.spatial import cKDTree as KDTree
 from collections import namedtuple
@@ -85,7 +88,7 @@ class DMParticles(object):
         indicies = np.argsort(self.ids)
 
         # Actually perform data transformation.
-        
+
         try:
             self.halos = self.halos[indicies]
         except AttributeError:
@@ -166,7 +169,6 @@ class BaryonicParticles(object):
         except AttributeError:
             # We must not have the halo catalogue for this one
             pass
-
 
         self.gas_ids = self.gas_ids[gas_indicies]
         self.star_ids = self.star_ids[star_indicies]
@@ -325,7 +327,9 @@ class Snapshot(object):
             catalogue = namedtuple("EmptyHaloCatalogue", ["halos", "galaxies"])
             self.halo_catalogue = catalogue._make([None, None])
 
-        self.dark_matter = DMParticles(particle_data["PartType1"], self.halo_catalogue.halos)
+        self.dark_matter = DMParticles(
+            particle_data["PartType1"], self.halo_catalogue.halos
+        )
         self.baryonic_matter = BaryonicParticles(
             particle_data["PartType0"],
             particle_data["PartType4"],
@@ -439,7 +443,7 @@ class Simulation(object):
         for group_id, lagrangian_region, mass in zip(
             tqdm(self.snapshot_end.baryonic_matter.gas_halos, desc="Analysing gas"),
             self.snapshot_end.baryonic_matter.gas_lagrangian_regions,
-            self.snapshot_end.baryonic_matter.gas_masses
+            self.snapshot_end.baryonic_matter.gas_masses,
         ):
             # First, add on the halo mass
             try:
@@ -473,7 +477,9 @@ class Simulation(object):
                 # We've ended up outside any lagrangian region
                 if lagrangian_region != -1:
                     # We _used_ to be in a lagrangian region
-                    self.gas_mass_outside_halo_from_lagrangian[lagrangian_region] += mass
+                    self.gas_mass_outside_halo_from_lagrangian[
+                        lagrangian_region
+                    ] += mass
                 else:
                     # We were never important :(
                     pass
@@ -487,7 +493,7 @@ class Simulation(object):
         for group_id, lagrangian_region, mass in zip(
             tqdm(self.snapshot_end.baryonic_matter.star_halos, desc="Analysing stars"),
             self.snapshot_end.baryonic_matter.star_lagrangian_regions,
-            self.snapshot_end.baryonic_matter.star_masses
+            self.snapshot_end.baryonic_matter.star_masses,
         ):
             # First, add on the halo mass
             try:
@@ -517,7 +523,9 @@ class Simulation(object):
                 # We've ended up outside any lagrangian region
                 if lagrangian_region != -1:
                     # We _used_ to be in a lagrangian region
-                    self.stellar_mass_outside_halo_from_lagrangian[lagrangian_region] += mass
+                    self.stellar_mass_outside_halo_from_lagrangian[
+                        lagrangian_region
+                    ] += mass
                 else:
                     # We were never important :(
                     pass
@@ -530,8 +538,8 @@ class Simulation(object):
 
         for group_id, lagrangian_region, mass in zip(
             tqdm(self.snapshot_end.dark_matter.halos, desc="Analysing DM"),
-            self.snapshot_end.dark_matter.halos, # By definition they are the same.
-            self.snapshot_end.dark_matter.masses
+            self.snapshot_end.dark_matter.halos,  # By definition they are the same.
+            self.snapshot_end.dark_matter.masses,
         ):
             # First, add on the halo mass
             try:
@@ -553,16 +561,21 @@ class Simulation(object):
             elif group_id != -1:
                 if lagrangian_region != -1:
                     # We've ended up in someone else's lagrangian
-                    self.dark_matter_mass_in_halo_from_other_lagrangian[group_id] += mass
+                    self.dark_matter_mass_in_halo_from_other_lagrangian[
+                        group_id
+                    ] += mass
                 else:
                     # We must be new to the game!
-                    self.dark_matter_mass_in_halo_from_outside_lagrangian[group_id] += mass
+                    self.dark_matter_mass_in_halo_from_outside_lagrangian[
+                        group_id
+                    ] += mass
             else:
                 # We've ended up outside any lagrangian region
                 if lagrangian_region != -1:
                     # We _used_ to be in a lagrangian region
-                    self.dark_matter_mass_outside_halo_from_lagrangian[lagrangian_region] += mass
+                    self.dark_matter_mass_outside_halo_from_lagrangian[
+                        lagrangian_region
+                    ] += mass
                 else:
                     # We were never important :(
                     pass
-
