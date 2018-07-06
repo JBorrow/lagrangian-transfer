@@ -484,6 +484,8 @@ class Simulation(object):
                     # We were never important :(
                     pass
 
+        return
+
     def run_star_analysis(self):
         """
         Runs the analysis (stars) - this is just a linear pass through all of the
@@ -529,6 +531,8 @@ class Simulation(object):
                 else:
                     # We were never important :(
                     pass
+
+        return
 
     def run_dark_matter_analysis(self):
         """
@@ -579,3 +583,37 @@ class Simulation(object):
                 else:
                     # We were never important :(
                     pass
+
+        return
+
+    def write_reduced_data(self, filename: str):
+        """
+        Writes out the reduced data as a table to a file.
+        """
+
+        attributes = [
+            "mass_in_halo",
+            "mass_in_lagrangian",
+            "mass_in_halo_from_lagrangian",
+            "mass_in_halo_from_outside_lagrangian",
+            "mass_in_halo_from_other_lagrangian",
+            "mass_outside_halo_from_lagrangian",
+        ]
+
+        header = ",".join(attributes)
+
+        data_types = ["dark_matter", "gas", "stellar"]
+
+        for data_type in data_types:
+            if filename[-4:] == ".txt":
+                this_filename = "{}_{}".format(data_type, filename)
+            else:
+                this_filename = "{}_{}.txt".format(data_type, filename)
+
+            data_to_write = np.array([
+                getattr(self, "{}_{}".format(data_type, x)) for x in attributes
+            ]).T
+
+            np.savetxt(this_filename, data_to_write, header=header, delimiter=",")
+
+        return
