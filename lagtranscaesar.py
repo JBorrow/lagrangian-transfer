@@ -52,7 +52,7 @@ class DMParticles(object):
         """
 
         # Allocate our final output array
-        halos = np.empty(self.n_parts)
+        halos = np.empty(self.n_parts, dtype=int)
         halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
@@ -192,7 +192,7 @@ class BaryonicParticles(object):
         """
 
         # Allocate our final output array
-        gas_halos = np.empty(self.n_gas_parts)
+        gas_halos = np.empty(self.n_gas_parts, dtype=int)
         gas_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
@@ -212,7 +212,7 @@ class BaryonicParticles(object):
         del flattened_halos
 
         # Now for stars
-        star_halos = np.empty(self.n_star_parts)
+        star_halos = np.empty(self.n_star_parts, dtype=int)
         star_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
@@ -246,11 +246,13 @@ class BaryonicParticles(object):
         # This could be quite slow. It is only a linear pass over the particles
         # though, as we can assume the arrays are sorted by ID.
 
-        gas_lagrangian_regions = np.empty_like(self.gas_ids)
-        star_lagrangian_regions = np.empty_like(self.star_ids)
+        gas_lagrangian_regions = np.repeat(-1, len(self.gas_ids))
+        star_lagrangian_regions = np.repeat(-1, len(self.star_ids))
 
         gas_current_index = 0
         star_current_index = 0
+
+        touched_last_gas, touched_last_star = (False, False)
 
         try:
             gas_current_id = self.gas_ids[gas_current_index]
@@ -263,7 +265,7 @@ class BaryonicParticles(object):
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
 
-        for lr, particle_id in zip(tqdm(lagrangian_regions), ids):
+        for lr, particle_id in zip(tqdm(lagrangian_regions, desc="Parsing LR"), ids):
             if particle_id == gas_current_id:
                 gas_lagrangian_regions[gas_current_index] = lr
                 gas_current_index += 1
@@ -272,6 +274,7 @@ class BaryonicParticles(object):
                     gas_current_id = self.gas_ids[gas_current_index]
                 except IndexError:
                     # We must have reached the end of the current ids.
+                    touched_last_gas = True
                     assert gas_current_index == len(gas_lagrangian_regions)
 
             elif particle_id == star_current_id:
@@ -281,14 +284,20 @@ class BaryonicParticles(object):
                 try:
                     star_current_id = self.star_ids[star_current_index]
                 except IndexError:
+                    touched_last_star = True
                     assert star_current_index == len(star_lagrangian_regions)
 
             else:
                 # Must be in a black hole. We currently don't deal with those.
                 continue
 
-        self.gas_lagrangian_regions = gas_lagrangian_regions
-        self.star_lagrangian_regions = star_lagrangian_regions
+        if not touched_last_gas:
+            print("Not parsed all gas particles. Results might be wrong.")
+        if not touched_last_star:
+            print("Not parsed all star particles. Results might be wrong.")
+
+        self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
+        self.star_lagrangian_regions = star_lagrangian_regions.astype(int)
 
         return
 
@@ -309,19 +318,19 @@ class Snapshot(object):
         self.header = dict(particle_data["Header"].attrs)
 
         if catalogue_filename is not None:
-            halo_catalogue = caesar.load(catalogue_filename)
+            self.halo_catalogue = caesar.load(catalogue_filename)
         else:
             # We need halo_catalogue.halos = None and halo_catalogue.galaxies = None
             # for simplicity, and also extensibility perhaps for later.
             catalogue = namedtuple("EmptyHaloCatalogue", ["halos", "galaxies"])
-            halo_catalogue = catalogue._make([None, None])
+            self.halo_catalogue = catalogue._make([None, None])
 
-        self.dark_matter = DMParticles(particle_data["PartType1"], halo_catalogue.halos)
+        self.dark_matter = DMParticles(particle_data["PartType1"], self.halo_catalogue.halos)
         self.baryonic_matter = BaryonicParticles(
             particle_data["PartType0"],
             particle_data["PartType4"],
             particle_data["PartType5"],
-            halo_catalogue.galaxies,
+            self.halo_catalogue.galaxies,
         )
 
         return
@@ -386,7 +395,7 @@ class Simulation(object):
         Allocates the analysis arrays.
         """
 
-        self.n_halos = self.snapshot_end.dark_matter.halo_catalogue.nhalos
+        self.n_halos = self.snapshot_end.halo_catalogue.nhalos
 
         # The total mass that ends up in the z=0 halo.
         self.dark_matter_mass_in_halo = np.zeros(self.n_halos)
@@ -428,9 +437,9 @@ class Simulation(object):
         """
 
         for group_id, lagrangian_region, mass in zip(
-            self.snapshot_ini.baryonic_matter.gas_halos,
-            self.snapshot_ini.baryonic_matter.gas_lagrangian_regions,
-            self.snapshot_ini.baryonic_matter.gas_mass
+            tqdm(self.snapshot_end.baryonic_matter.gas_halos, desc="Analysing gas"),
+            self.snapshot_end.baryonic_matter.gas_lagrangian_regions,
+            self.snapshot_end.baryonic_matter.gas_masses
         ):
             # First, add on the halo mass
             try:
@@ -448,7 +457,11 @@ class Simulation(object):
 
             if group_id == lagrangian_region:
                 # We're in the same halo as LR
-                self.gas_mass_in_halo_from_lagrangian[group_id] += mass
+                try:
+                    self.gas_mass_in_halo_from_lagrangian[group_id] += mass
+                except IndexError:
+                    # Wow you are so uninteresting, particle.
+                    pass
             elif group_id != -1:
                 if lagrangian_region != -1:
                     # We've ended up in someone else's lagrangian
@@ -472,39 +485,39 @@ class Simulation(object):
         """
 
         for group_id, lagrangian_region, mass in zip(
-            self.snapshot_ini.baryonic_matter.star_halos,
-            self.snapshot_ini.baryonic_matter.star_lagrangian_regions,
-            self.snapshot_ini.baryonic_matter.star_mass
+            tqdm(self.snapshot_end.baryonic_matter.star_halos, desc="Analysing stars"),
+            self.snapshot_end.baryonic_matter.star_lagrangian_regions,
+            self.snapshot_end.baryonic_matter.star_masses
         ):
             # First, add on the halo mass
             try:
-                self.star_mass_in_halo[group_id] += mass
+                self.stellar_mass_in_halo[group_id] += mass
             except IndexError:
                 # Must be -1
                 pass
 
             # Add on mass to corresponding lagrangian region
             try:
-                self.star_mass_in_lagrangian[lagrangian_region] += mass
+                self.stellar_mass_in_lagrangian[lagrangian_region] += mass
             except IndexError:
                 # Must be -1
                 pass
 
             if group_id == lagrangian_region:
                 # We're in the same halo as LR
-                self.star_mass_in_halo_from_lagrangian[group_id] += mass
+                self.stellar_mass_in_halo_from_lagrangian[group_id] += mass
             elif group_id != -1:
                 if lagrangian_region != -1:
                     # We've ended up in someone else's lagrangian
-                    self.star_mass_in_halo_from_other_lagrangian[group_id] += mass
+                    self.stellar_mass_in_halo_from_other_lagrangian[group_id] += mass
                 else:
                     # We must be new to the game!
-                    self.star_mass_in_halo_from_outside_lagrangian[group_id] += mass
+                    self.stellar_mass_in_halo_from_outside_lagrangian[group_id] += mass
             else:
                 # We've ended up outside any lagrangian region
                 if lagrangian_region != -1:
                     # We _used_ to be in a lagrangian region
-                    self.star_mass_outside_halo_from_lagrangian[lagrangian_region] += mass
+                    self.stellar_mass_outside_halo_from_lagrangian[lagrangian_region] += mass
                 else:
                     # We were never important :(
                     pass
@@ -516,9 +529,9 @@ class Simulation(object):
         """
 
         for group_id, lagrangian_region, mass in zip(
-            self.snapshot_ini.dark_matter.halos,
-            self.snapshot_ini.dark_matter.halos, # By definition they are the same.
-            self.snapshot_ini.dark_matter.mass
+            tqdm(self.snapshot_end.dark_matter.halos, desc="Analysing DM"),
+            self.snapshot_end.dark_matter.halos, # By definition they are the same.
+            self.snapshot_end.dark_matter.masses
         ):
             # First, add on the halo mass
             try:
