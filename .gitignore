@@ -1,0 +1,6 @@
+# Python compiled files
+__pycache__*
+*.ipynb*
+
+# Output files
+*.txt
