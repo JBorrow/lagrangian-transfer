@@ -117,41 +117,59 @@ class BaryonicParticles(object):
     """
 
     def __init__(
-        self, gas_particles, star_particles, bh_particles, halo_catalogue=None
+        self, gas_particles, star_particles, bh_particles, halo_catalogue=None,
+        truncate_ids=None
     ):
         """
         Takes the particles in PatyType[x] (the reference to it from h5py) and
         the halos catalogue from caeasar.
+
+        truncate_ids should be an integer above which the ParticleIDs are all
+        truncated. This is helpful as in some simulation codes (e.g. Mufasa)
+        star-forming particles have their higher-up bits played with.
         """
 
         self.gas_particles = gas_particles
         self.star_particles = star_particles
         self.bh_particles = bh_particles
         self.halo_catalogue = halo_catalogue
+        self.truncate_ids = truncate_ids
 
+        # Now we read a bunch of particle properties.
         self.n_gas_parts = len(gas_particles["ParticleIDs"])
-        self.n_star_parts = len(star_particles["ParticleIDs"])
-        self.n_bh_parts = len(bh_particles["ParticleIDs"])
+        self.gas_ids = self.gas_particles["ParticleIDs"][...]
+        self.gas_masses = self.gas_particles["Masses"][...]
+        self.gas_coordinates = self.gas_particles["Coordinates"][...]
+
+        # Try to load stars and BHs -- but they might not be there (ics)!
+        try:
+            self.n_star_parts = len(star_particles["ParticleIDs"])
+            self.star_ids = self.star_particles["ParticleIDs"][...]
+            self.star_masses = self.star_particles["Masses"][...]
+            self.star_coordinates = self.star_particles["Coordinates"][...]
+        except IndexError:
+            self.n_star_parts = 0
+            self.star_ids = np.array([])
+            self.star_masses = np.array([])
+            self.star_coordinates = np.array([[]*3])
+
+        try:
+            self.n_bh_parts = len(bh_particles["ParticleIDs"])
+            self.bh_ids = self.bh_particles["ParticleIDs"][...]
+            self.bh_masses = self.bh_particles["BH_Mass"][...]
+            self.bh_coordinates = self.bh_particles["Coordinates"][...]
+        except IndexError:
+            self.n_bh_parts = 0
+            self.bh_ids = np.array([])
+            self.bh_masses = np.array([])
+            self.bh_coordinates = np.array([[]*3])
 
         if halo_catalogue is not None:
             self.gas_halos, self.star_halos, self.bh_halos = (
                 self.get_all_particle_references()
             )
 
-        # Now we read a bunch of particle properties.
-
-        self.gas_ids = self.gas_particles["ParticleIDs"][...]
-        self.star_ids = self.star_particles["ParticleIDs"][...]
-        self.bh_ids = self.bh_particles["ParticleIDs"][...]
-
-        self.gas_masses = self.gas_particles["Masses"][...]
-        self.star_masses = self.star_particles["Masses"][...]
-        self.bh_masses = self.bh_particles["BH_Mass"][...]
-
-        self.gas_coordinates = self.gas_particles["Coordinates"][...]
-        self.star_coordinates = self.star_particles["Coordinates"][...]
-        self.bh_coordinates = self.bh_particles["Coordinates"][...]
-
+        # This function sorts by ID to make matching easier.
         self.sort_data()
 
         return
@@ -161,9 +179,17 @@ class BaryonicParticles(object):
         Sorts the data by ParticleID.
         """
 
-        gas_indicies = np.argsort(self.gas_ids)
-        star_indicies = np.argsort(self.star_ids)
-        bh_indicies = np.argsort(self.bh_ids)
+        if self.truncate_ids is not None:
+            # We want to sort based on the NON-SF IDs as these are the ones that
+            # will be matched later on
+            gas_indicies = np.argsort(self.gas_ids % (self.truncate_ids + 1))
+            star_indicies = np.argsort(self.star_ids % (self.truncate_ids + 1))
+            bh_indicies = np.argsort(self.bh_ids % (self.truncate_ids + 1))
+        else:
+            gas_indicies = np.argsort(self.gas_ids)
+            star_indicies = np.argsort(self.star_ids)
+            bh_indicies = np.argsort(self.bh_ids)
+
 
         # Actually perform data transformation.
 
@@ -275,41 +301,84 @@ class BaryonicParticles(object):
         except IndexError:
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
+        
+        truncate = self.truncate_ids + 1
+
+        if self.truncate_ids is not None:
+            truncated_gas_id = gas_current_id % truncate
+            truncated_star_id = star_current_id % truncate
+        else:
+            truncated_gas_id = gas_current_id
+            truncated_star_id = star_current_id
+
 
         # It is unclear if this fully works at the moment. We really need to parse
         # the stellar IDs first before doing this. We may also break things by sorting
         # in that way, but I would hope not as the gas particles are still contiguous.            
 
+
         for lr, particle_id in zip(tqdm(lagrangian_regions, desc="Parsing LR"), ids):
-            if particle_id == gas_current_id:
+            # We must do this on a case-by-case basis or risk 2x memory footprint.
+            # This should hopefully be very fast as we already have gas_current_id in
+            # the cache anyway.
+
+            while particle_id == truncated_gas_id:
                 gas_lagrangian_regions[gas_current_index] = lr
                 gas_current_index += 1
 
                 try:
                     gas_current_id = self.gas_ids[gas_current_index]
-                except IndexError:
+                    
+                    if self.truncate_ids is not None:
+                        truncated_gas_id = gas_current_id % truncate
+                    else:
+                        truncated_gas_id = gas_current_id
+                except IndexError as e:
                     # We must have reached the end of the current ids.
-                    touched_last_gas = True
-                    assert gas_current_index == len(gas_lagrangian_regions)
+                    if touched_last_gas:
+                        import pdb
+                        pdb.set_trace()
+                        raise e
+                    else:
+                        touched_last_gas = True
+                        gas_current_id = -1
+                        truncated_gas_id = -1
+                        gas_current_index -= 1
 
-            elif particle_id == star_current_id:
+                    print(gas_current_index, len(gas_lagrangian_regions), "g")
+
+            while particle_id == truncated_star_id:
                 star_lagrangian_regions[star_current_index] = lr
                 star_current_index += 1
 
                 try:
                     star_current_id = self.star_ids[star_current_index]
-                except IndexError:
-                    touched_last_star = True
-                    assert star_current_index == len(star_lagrangian_regions)
 
-            else:
-                # Must be in a black hole. We currently don't deal with those.
-                continue
+                    if self.truncate_ids is not None:
+                        truncated_star_id = star_current_id % truncate
+                    else:
+                        truncated_star_id = star_current_id
+                except IndexError as e:
+                    if touched_last_star:
+                        import pdb
+                        pdb.set_trace()
+                        raise e
+                    else:
+                        touched_last_star = True
+                        star_current_id = -1
+                        truncated_star_id = -1
+                        star_current_index -= 1
+
+                    print(star_current_index, len(star_lagrangian_regions) , "s")
+
+            # Black holes need to be implemented here at some point.
 
         if not touched_last_gas:
             print("Not parsed all gas particles. Results might be wrong.")
+            print("Got to index {}/{}".format(gas_current_index, len(gas_lagrangian_regions)))
         if not touched_last_star:
             print("Not parsed all star particles. Results might be wrong.")
+            print("Got to index {}/{}".format(star_current_index, len(star_lagrangian_regions)))
 
         self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
         self.star_lagrangian_regions = star_lagrangian_regions.astype(int)
@@ -323,10 +392,14 @@ class Snapshot(object):
     halo catalogue. Pass two of these to Simulation to run the analysis.
     """
 
-    def __init__(self, snapshot_filename, catalogue_filename=None):
+    def __init__(self, snapshot_filename, catalogue_filename=None, truncate_ids=None):
         """
         Opens the data and stuffs the information into the appropriate
         objects.
+
+        truncate_ids should be an integer above which the ParticleIDs are all
+        truncated. This is helpful as in some simulation codes (e.g. Mufasa)
+        star-forming particles have their higher-up bits played with.
         """
 
         particle_data = h5py.File(snapshot_filename, "r")
@@ -344,12 +417,23 @@ class Snapshot(object):
         self.dark_matter = DMParticles(
             particle_data["PartType1"], self.halo_catalogue.halos
         )
-        self.baryonic_matter = BaryonicParticles(
-            particle_data["PartType0"],
-            particle_data["PartType4"],
-            particle_data["PartType5"],
-            self.halo_catalogue.galaxies,
-        )
+        
+        try:
+            self.baryonic_matter = BaryonicParticles(
+                particle_data["PartType0"],
+                particle_data["PartType4"],
+                particle_data["PartType5"],
+                self.halo_catalogue.galaxies,
+                truncate_ids = truncate_ids
+            )
+        except KeyError:
+            self.baryonic_matter = BaryonicParticles(
+                particle_data["PartType0"],
+                np.array([]),
+                np.array([]),
+                self.halo_catalogue.galaxies,
+                truncate_ids= truncate_ids
+            )
 
         return
 

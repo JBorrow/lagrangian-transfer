@@ -23,7 +23,9 @@ caesar_filename = str(sys.argv[3])
 # Load the data using our library
 
 simulation_ini = lt.Snapshot(snapshot_filename_ini)
-simulation_end = lt.Snapshot(snapshot_filename_end, caesar_filename)
+# Get the max initial gas ID to truncate by
+truncate_id = simulation_ini.baryonic_matter.gas_ids.max()
+simulation_end = lt.Snapshot(snapshot_filename_end, caesar_filename, truncate_ids=truncate_id)
 
 print("Running the simulation class")
 simulation = lt.Simulation(simulation_ini, simulation_end)
