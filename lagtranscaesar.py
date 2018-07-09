@@ -304,6 +304,7 @@ class BaryonicParticles(object):
         
         truncate = self.truncate_ids + 1
 
+        # The _first_ id needs truncating just in case.
         if self.truncate_ids is not None:
             truncated_gas_id = gas_current_id % truncate
             truncated_star_id = star_current_id % truncate
@@ -330,22 +331,23 @@ class BaryonicParticles(object):
                     gas_current_id = self.gas_ids[gas_current_index]
                     
                     if self.truncate_ids is not None:
+                        # We do this truncation on the fly as it is more memory efficient.
                         truncated_gas_id = gas_current_id % truncate
                     else:
                         truncated_gas_id = gas_current_id
                 except IndexError as e:
                     # We must have reached the end of the current ids.
+                    assert gas_current_index == len(gas_lagrangian_regions)
                     if touched_last_gas:
-                        import pdb
-                        pdb.set_trace()
+                        # This should _never_ happen by construction.
                         raise e
                     else:
                         touched_last_gas = True
+
+                        # Reset values so we don't get stuck in the while loop
                         gas_current_id = -1
                         truncated_gas_id = -1
                         gas_current_index -= 1
-
-                    print(gas_current_index, len(gas_lagrangian_regions), "g")
 
             while particle_id == truncated_star_id:
                 star_lagrangian_regions[star_current_index] = lr
@@ -359,17 +361,16 @@ class BaryonicParticles(object):
                     else:
                         truncated_star_id = star_current_id
                 except IndexError as e:
+                    assert star_current_index == len(star_lagrangian_regions)
                     if touched_last_star:
-                        import pdb
-                        pdb.set_trace()
                         raise e
                     else:
                         touched_last_star = True
+
+                        # Reset values so we don't get stuck in the while loop
                         star_current_id = -1
                         truncated_star_id = -1
                         star_current_index -= 1
-
-                    print(star_current_index, len(star_lagrangian_regions) , "s")
 
             # Black holes need to be implemented here at some point.
 
@@ -553,14 +554,14 @@ class Simulation(object):
             try:
                 self.gas_mass_in_halo[group_id] += mass
             except IndexError:
-                # Must be -1
+                # Must be weird. Let's just forget about it.
                 pass
 
             # Add on mass to corresponding lagrangian region
             try:
                 self.gas_mass_in_lagrangian[lagrangian_region] += mass
             except IndexError:
-                # Must be -1
+                # Must be weird. Let's just forget about it.
                 pass
 
             if group_id == lagrangian_region:
