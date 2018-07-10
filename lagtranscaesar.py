@@ -118,8 +118,12 @@ class BaryonicParticles(object):
     """
 
     def __init__(
-        self, gas_particles, star_particles, bh_particles, halo_catalogue=None,
-        truncate_ids=None
+        self,
+        gas_particles,
+        star_particles,
+        bh_particles,
+        halo_catalogue=None,
+        truncate_ids=None,
     ):
         """
         Takes the particles in PatyType[x] (the reference to it from h5py) and
@@ -152,7 +156,7 @@ class BaryonicParticles(object):
             self.n_star_parts = 0
             self.star_ids = np.array([])
             self.star_masses = np.array([])
-            self.star_coordinates = np.array([[]*3])
+            self.star_coordinates = np.array([[] * 3])
 
         try:
             self.n_bh_parts = len(bh_particles["ParticleIDs"])
@@ -163,7 +167,7 @@ class BaryonicParticles(object):
             self.n_bh_parts = 0
             self.bh_ids = np.array([])
             self.bh_masses = np.array([])
-            self.bh_coordinates = np.array([[]*3])
+            self.bh_coordinates = np.array([[] * 3])
 
         if halo_catalogue is not None:
             self.gas_halos, self.star_halos, self.bh_halos = (
@@ -190,7 +194,6 @@ class BaryonicParticles(object):
             gas_indicies = np.argsort(self.gas_ids)
             star_indicies = np.argsort(self.star_ids)
             bh_indicies = np.argsort(self.bh_ids)
-
 
         # Actually perform data transformation.
 
@@ -236,7 +239,8 @@ class BaryonicParticles(object):
         # Grab all references
         particles_in_halos = [galaxy.glist for galaxy in self.halo_catalogue]
         copied_halos = [
-            np.repeat(galaxy.halo.GroupID, galaxy.ngas) for galaxy in self.halo_catalogue
+            np.repeat(galaxy.halo.GroupID, galaxy.ngas)
+            for galaxy in self.halo_catalogue
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -256,7 +260,8 @@ class BaryonicParticles(object):
         # Grab all references
         particles_in_halos = [galaxy.slist for galaxy in self.halo_catalogue]
         copied_halos = [
-            np.repeat(galaxy.halo.GroupID, galaxy.nstar) for galaxy in self.halo_catalogue
+            np.repeat(galaxy.halo.GroupID, galaxy.nstar)
+            for galaxy in self.halo_catalogue
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -302,7 +307,7 @@ class BaryonicParticles(object):
         except IndexError:
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
-        
+
         truncate = self.truncate_ids + 1
 
         # The _first_ id needs truncating just in case.
@@ -313,11 +318,9 @@ class BaryonicParticles(object):
             truncated_gas_id = gas_current_id
             truncated_star_id = star_current_id
 
-
         # It is unclear if this fully works at the moment. We really need to parse
         # the stellar IDs first before doing this. We may also break things by sorting
-        # in that way, but I would hope not as the gas particles are still contiguous.            
-
+        # in that way, but I would hope not as the gas particles are still contiguous.
 
         for lr, particle_id in zip(tqdm(lagrangian_regions, desc="Parsing LR"), ids):
             # We must do this on a case-by-case basis or risk 2x memory footprint.
@@ -330,7 +333,7 @@ class BaryonicParticles(object):
 
                 try:
                     gas_current_id = self.gas_ids[gas_current_index]
-                    
+
                     if self.truncate_ids is not None:
                         # We do this truncation on the fly as it is more memory efficient.
                         truncated_gas_id = gas_current_id % truncate
@@ -377,10 +380,18 @@ class BaryonicParticles(object):
 
         if not touched_last_gas:
             print("Not parsed all gas particles. Results might be wrong.")
-            print("Got to index {}/{}".format(gas_current_index, len(gas_lagrangian_regions)))
+            print(
+                "Got to index {}/{}".format(
+                    gas_current_index, len(gas_lagrangian_regions)
+                )
+            )
         if not touched_last_star:
             print("Not parsed all star particles. Results might be wrong.")
-            print("Got to index {}/{}".format(star_current_index, len(star_lagrangian_regions)))
+            print(
+                "Got to index {}/{}".format(
+                    star_current_index, len(star_lagrangian_regions)
+                )
+            )
 
         self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
         self.star_lagrangian_regions = star_lagrangian_regions.astype(int)
@@ -419,14 +430,14 @@ class Snapshot(object):
         self.dark_matter = DMParticles(
             particle_data["PartType1"], self.halo_catalogue.halos
         )
-        
+
         try:
             self.baryonic_matter = BaryonicParticles(
                 particle_data["PartType0"],
                 particle_data["PartType4"],
                 particle_data["PartType5"],
                 self.halo_catalogue.galaxies,
-                truncate_ids = truncate_ids
+                truncate_ids=truncate_ids,
             )
         except KeyError:
             self.baryonic_matter = BaryonicParticles(
@@ -434,7 +445,7 @@ class Snapshot(object):
                 np.array([]),
                 np.array([]),
                 self.halo_catalogue.galaxies,
-                truncate_ids= truncate_ids
+                truncate_ids=truncate_ids,
             )
 
         return
@@ -486,7 +497,9 @@ class Simulation(object):
         # This returns the index of the Dark Matter particle that belongs to
         # the relevant z=0 group.
         print("Querying tree")
-        _, ids = tree.query(self.snapshot_ini.baryonic_matter.gas_coordinates, k=1, n_jobs=-1)
+        _, ids = tree.query(
+            self.snapshot_ini.baryonic_matter.gas_coordinates, k=1, n_jobs=-1
+        )
         print("Finished querying tree")
 
         # This requires the data to be sorted by ParticleID.
@@ -735,9 +748,9 @@ class Simulation(object):
             else:
                 this_filename = "{}_{}.txt".format(data_type, filename)
 
-            data_to_write = np.array([
-                getattr(self, "{}_{}".format(data_type, x)) for x in attributes
-            ]).T
+            data_to_write = np.array(
+                [getattr(self, "{}_{}".format(data_type, x)) for x in attributes]
+            ).T
 
             np.savetxt(this_filename, data_to_write, header=header, delimiter=",")
 
