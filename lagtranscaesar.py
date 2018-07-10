@@ -235,7 +235,7 @@ class BaryonicParticles(object):
         # Grab all references
         particles_in_halos = [galaxy.glist for galaxy in self.halo_catalogue]
         copied_halos = [
-            np.repeat(galaxy.GroupID, galaxy.ngas) for galaxy in self.halo_catalogue
+            np.repeat(galaxy.halo.GroupID, galaxy.ngas) for galaxy in self.halo_catalogue
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -255,7 +255,7 @@ class BaryonicParticles(object):
         # Grab all references
         particles_in_halos = [galaxy.slist for galaxy in self.halo_catalogue]
         copied_halos = [
-            np.repeat(galaxy.GroupID, galaxy.nstar) for galaxy in self.halo_catalogue
+            np.repeat(galaxy.halo.GroupID, galaxy.nstar) for galaxy in self.halo_catalogue
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -475,7 +475,7 @@ class Simulation(object):
         # This returns the index of the Dark Matter particle that belongs to
         # the relevant z=0 group.
         print("Querying tree")
-        _, ids = tree.query(self.snapshot_ini.baryonic_matter.gas_coordinates, k=1)
+        _, ids = tree.query(self.snapshot_ini.baryonic_matter.gas_coordinates, k=1, n_jobs=-1)
         print("Finished querying tree")
 
         # This requires the data to be sorted by ParticleID.
