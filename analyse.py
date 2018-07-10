@@ -12,7 +12,7 @@ snapshot, and you will need to run 2to3 on the caesar source code (some minor
 differences, such as how to get values out of dictionaries, cause this).
 """
 
-import lagtranscaesar as lt
+import ltcaesar as lt
 
 import sys
 
