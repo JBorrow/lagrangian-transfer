@@ -9,6 +9,7 @@ Full documentation for the library can be found in README.md.
 """
 
 import caesar
+import dill as pickle
 import h5py
 import numpy as np
 
@@ -435,6 +436,16 @@ class Snapshot(object):
                 self.halo_catalogue.galaxies,
                 truncate_ids= truncate_ids
             )
+
+        return
+
+    def close_file_handles(self):
+        """
+        Closes the file handles used for reading data so that the struct can be
+        pickled.
+        """
+
+        self.particle_data.close()
 
         return
 
