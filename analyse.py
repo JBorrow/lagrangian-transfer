@@ -43,6 +43,6 @@ simulation.run_dark_matter_analysis()
 simulation.write_reduced_data("lagrangian_transfer.txt")
 
 print("Writing to HDF5 file")
-lt.write_data_to_file("test.hdf5", simulation)
+lt.write_data_to_file("lt_outputs.hdf5", simulation)
 
 exit(0)
