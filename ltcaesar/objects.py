@@ -174,6 +174,9 @@ class BaryonicParticles(object):
                 self.get_all_particle_references()
             )
 
+        self.gas_lagrangian_regions = None
+        self.star_lagrangian_regions = None
+
         # This function sorts by ID to make matching easier.
         self.sort_data()
 
@@ -414,6 +417,10 @@ class Snapshot(object):
         truncated. This is helpful as in some simulation codes (e.g. Mufasa)
         star-forming particles have their higher-up bits played with.
         """
+
+        self.snapshot_filename = snapshot_filename
+        self.catalogue_filename = catalogue_filename
+        self.truncate_ids = truncate_ids
 
         particle_data = h5py.File(snapshot_filename, "r")
 
