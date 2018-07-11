@@ -1,6 +1,7 @@
 # Python compiled files
 __pycache__*
 *.ipynb*
+*.egg-info*
 
 # Output files
 *.txt
