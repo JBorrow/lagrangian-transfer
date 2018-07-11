@@ -120,3 +120,22 @@ that they are actually called `<particle_type>_<array_name>`.
 
 To save this data to file, youc an call the `write_reduced_data` method on the
 `Simulation` class. This will save three CSV files.
+
+
+Reading and Writing
+-------------------
+
+So, you've ran your analysis -- and it took a little while!. You would like to store
+the data somewhere a little more permanent than in your fragile memory (ECC or not).
+
+We procide two top-level functions: `write_data_to_file`, which takes a filename
+and an instance of the `Simulation` class. This gets written (using `h5py`) out to
+file.
+
+To read the data in again, simply use `read_data_from_file` and you will get a
+`Simulation`-like object (these are _not_ bitwise comparable, they are actually of
+different types) with the same API that you can use to access your data.
+
+Note that these files are not portable as of the current version. This is because 
+we hard-code the references to both the catalogue and particle files.
+
