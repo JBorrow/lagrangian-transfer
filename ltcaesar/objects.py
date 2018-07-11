@@ -9,7 +9,6 @@ Full documentation for the library can be found in README.md.
 """
 
 import caesar
-import dill as pickle
 import h5py
 import numpy as np
 
