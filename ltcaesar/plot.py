@@ -25,6 +25,8 @@ def bin_x_by_y(x, y, xbins):
     output_center_bin = []
     output_stdev = []
 
+    bin_edges = [[x, y] for x, y in zip(xbins[:-1], xbins[1:])]
+
     for this_bin in bin_edges:
         this_mask = np.logical_and(x < this_bin[1], x > this_bin[0])
         this_data = y[this_mask]
@@ -68,6 +70,8 @@ def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None):
     Gets reduced data in the following format: fraction of mass that comes from the
     halo's own lagrangian region, from other lagrangian regions, and from outside
     any lagrangian region, all as a function of halo mass.
+
+    The halo mass is taken as log10(M)
 
     Gets a dictionary of the following form:
 
@@ -121,7 +125,7 @@ def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None):
     fraction_of_mass_from_other_lr = total_mass_from_other_lr / total_mass
     fraction_of_mass_from_outside_lr = total_mass_from_outside_lr / total_mass
 
-    masked_halo_masses = sim.dark_matter_mass_in_halo[mask]
+    masked_halo_masses = np.log10(sim.dark_matter_mass_in_halo[mask])
 
     # If no bins, get them!!!
 
@@ -161,16 +165,13 @@ def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None):
     fig, ax = plt.subplots(1)
 
     data = mass_fraction_transfer_from_lr_data(sim, bins)
-    
-    # We don't plot log(x), we do the proper scaling!
-    ax.semilogx()
 
     plot_errorbars_and_filled_region(ax, data["halo_mass"], data["mass_fraction_from_lr"], data["mass_fraction_from_lr_stddev"], label="From LR")
     plot_errorbars_and_filled_region(ax, data["halo_mass"], data["mass_fraction_from_other_lr"], data["mass_fraction_from_other_lr_stddev"], label="From LR")
     plot_errorbars_and_filled_region(ax, data["halo_mass"], data["mass_fraction_from_outside_lr"], data["mass_fraction_from_outside_lr_stddev"], label="From LR")
 
     ax.set_ylim(0, 1)
-    ax.set_xlabel("M$_{halo}$ / ($10^{10}/h$ M$_\odot$)")
+    ax.set_xlabel("log$_{10}$(M$_{halo} (code units))")
     ax.set_ylabel("Fraction of mass at $z=0$")
 
     ax.legend(frameon=False)
