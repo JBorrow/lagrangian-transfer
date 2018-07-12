@@ -67,9 +67,9 @@ class DMParticles(object):
         halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
-        particles_in_halos = [halo.dmlist for halo in self.halo_catalogue]
+        particles_in_halos = [halo.dmlist for halo in self.halo_catalogue.halos]
         copied_halos = [
-            np.repeat(halo.GroupID, halo.ndm) for halo in self.halo_catalogue
+            np.repeat(halo.GroupID, halo.ndm) for halo in self.halo_catalogue.halos
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -239,10 +239,10 @@ class BaryonicParticles(object):
         gas_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
-        particles_in_halos = [galaxy.glist for galaxy in self.halo_catalogue]
+        particles_in_halos = [galaxy.glist for galaxy in self.halo_catalogue.halos]
         copied_halos = [
-            np.repeat(galaxy.halo.GroupID, galaxy.ngas)
-            for galaxy in self.halo_catalogue
+            np.repeat(galaxy.GroupID, galaxy.ngas)
+            for galaxy in self.halo_catalogue.halos
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -260,10 +260,10 @@ class BaryonicParticles(object):
         star_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
-        particles_in_halos = [galaxy.slist for galaxy in self.halo_catalogue]
+        particles_in_halos = [galaxy.slist for galaxy in self.halo_catalogue.halos]
         copied_halos = [
-            np.repeat(galaxy.halo.GroupID, galaxy.nstar)
-            for galaxy in self.halo_catalogue
+            np.repeat(galaxy.GroupID, galaxy.nstar)
+            for galaxy in self.halo_catalogue.halos
         ]
 
         flattened_particles = np.concatenate(particles_in_halos)
@@ -428,13 +428,10 @@ class Snapshot(object):
         if catalogue_filename is not None:
             self.halo_catalogue = caesar.load(catalogue_filename)
         else:
-            # We need halo_catalogue.halos = None and halo_catalogue.galaxies = None
-            # for simplicity, and also extensibility perhaps for later.
-            catalogue = namedtuple("EmptyHaloCatalogue", ["halos", "galaxies"])
-            self.halo_catalogue = catalogue._make([None, None])
+            self.halo_catalogue = None 
 
         self.dark_matter = DMParticles(
-            particle_data["PartType1"], self.halo_catalogue.halos
+            particle_data["PartType1"], self.halo_catalogue
         )
 
         try:
@@ -442,7 +439,7 @@ class Snapshot(object):
                 particle_data["PartType0"],
                 particle_data["PartType4"],
                 particle_data["PartType5"],
-                self.halo_catalogue.galaxies,
+                self.halo_catalogue,
                 truncate_ids=truncate_ids,
             )
         except KeyError:
@@ -450,7 +447,7 @@ class Snapshot(object):
                 particle_data["PartType0"],
                 np.array([]),
                 np.array([]),
-                self.halo_catalogue.galaxies,
+                self.halo_catalogue,
                 truncate_ids=truncate_ids,
             )
 
