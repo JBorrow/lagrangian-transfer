@@ -60,7 +60,7 @@ def plot_errorbars_and_filled_region(ax, x, y, yerr, **kwargs):
     """
 
     ax.errorbar(x, y, yerr, **kwargs)
-    ax.fill_between(x, y-yerr, y+yerr, alpha=0.2)
+    ax.fill_between(x, y - yerr, y + yerr, alpha=0.2)
 
     return
 
@@ -166,9 +166,27 @@ def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None):
 
     data = mass_fraction_transfer_from_lr_data(sim, bins)
 
-    plot_errorbars_and_filled_region(ax, data["halo_mass"], data["mass_fraction_from_lr"], data["mass_fraction_from_lr_stddev"], label="From LR")
-    plot_errorbars_and_filled_region(ax, data["halo_mass"], data["mass_fraction_from_other_lr"], data["mass_fraction_from_other_lr_stddev"], label="From other LR")
-    plot_errorbars_and_filled_region(ax, data["halo_mass"], data["mass_fraction_from_outside_lr"], data["mass_fraction_from_outside_lr_stddev"], label="From outside LR")
+    plot_errorbars_and_filled_region(
+        ax,
+        data["halo_mass"],
+        data["mass_fraction_from_lr"],
+        data["mass_fraction_from_lr_stddev"],
+        label="From LR",
+    )
+    plot_errorbars_and_filled_region(
+        ax,
+        data["halo_mass"],
+        data["mass_fraction_from_other_lr"],
+        data["mass_fraction_from_other_lr_stddev"],
+        label="From other LR",
+    )
+    plot_errorbars_and_filled_region(
+        ax,
+        data["halo_mass"],
+        data["mass_fraction_from_outside_lr"],
+        data["mass_fraction_from_outside_lr_stddev"],
+        label="From outside LR",
+    )
 
     ax.set_ylim(0, 1)
     ax.set_xlabel("log$_{10}$(M$_{halo}$ (code units))")
@@ -179,5 +197,3 @@ def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None):
     fig.tight_layout()
 
     return fig, ax
-
-
