@@ -11,6 +11,7 @@ import time
 import numpy as np
 
 from .objects import Simulation, Snapshot
+from .halos import FakeCaesar
 
 
 class FakeSimulation(object):
@@ -89,8 +90,33 @@ class FakeSimulation(object):
             # Because we do the np.string_ conversion when writing.
             if catalogue_filename == "None":
                 catalogue_filename = None
+            elif catalogue_filename == "fake_caesar":
+                # We need to read reduced data _later_
+                # This makes the reading logic a little complex, sorry about that.
+                catalogue_filename = None
+                read_reduced_data_fake_caesar = True
 
             snapshot = Snapshot(snapshot_filename, catalogue_filename, truncate_ids)
+
+            if read_reduced_data_fake_caesar:
+                # Read the reduced data and slot it into the snapshot.
+
+                dark_matter_halos = self.handle[snap]["fake_caesar"][
+                    "dark_matter_halos"
+                ][...]
+                snapshot.dark_matter.halos = dark_matter_halos
+
+                # Gas stellar, and bh halo data.
+                for halo_type in ["gas", "star", "bh"]:
+                    this_data = self.handle["snap"]["fake_caesar"][
+                        "{}_halos".format(halo_type)
+                    ][...]
+
+                    setattr(
+                        snapshot.baryonic_matter,
+                        "{}_halos".format(halo_type),
+                        this_data,
+                    )
 
             setattr(self, snap, snapshot)
 
@@ -160,9 +186,36 @@ def write_data_to_file(filename, simulation: Simulation):
             snap_group.attrs.create(
                 "snapshot_filename", np.string_(this_snapshot.snapshot_filename)
             )
-            snap_group.attrs.create(
-                "catalogue_filename", np.string_(this_snapshot.catalogue_filename)
-            )
+
+            if not isinstance(this_snapshot.catalogue_filename, FakeCaesar):
+                snap_group.attrs.create(
+                    "catalogue_filename", np.string_(this_snapshot.catalogue_filename)
+                )
+            else:
+                # Now we need to deal with the i/o for our fake halo catalogue.
+
+                snap_group.attrs.create("catalogue_filename", np.string_("FakeCaesar"))
+
+                # There are a number of properties that we need to write to a dataset.
+                # Note that these are not actually used to re-create the FakeCaesar
+                # object, but are instead just used to re-populate the reduced arrays
+                # that we need.
+
+                fake_caesar_group = snap_group.create_group("fake_caesar")
+
+                # Dark matter halos
+                fake_caesar_group.create_dataset(
+                    "dark_matter_halos", this_snapshot.dark_matter.halos
+                )
+
+                # Gas stellar, and bh halo data.
+                for halo_type in ["gas", "star", "bh"]:
+                    fake_caesar_group.create_dataset(
+                        "{}_halos".format(halo_type),
+                        getattr(
+                            this_snapshot.baryonic_matter, "{}_halos".format(halo_type)
+                        ),
+                    )
 
             # H5py does _not_ like NoneTypes or long integers being stored as strings. We
             # have to sort this out by setting truncate_ids = -1 if we have it as "None" as this
