@@ -6,6 +6,20 @@ halo-finder library, but it was re-written in early July 2018 at the Kavli
 Summer Program in Astrophysics by Josh Borrow (joshua.borrow@durham.ac.uk).
 
 Full documentation for the library can be found in README.md.
+
+Internally, we organise the library such that
+
+                                Simulation
+                                    ^
+                    ________________|_______________
+                    |                              |
+                 Snapshot                       Snapshot
+                    ^                              ^
+                    |                              |
+              _------------_                _--------------_
+              |            |                |              |
+        DMParticles  BaryonicParticles  DMParticles  BaryonicParticles
+
 """
 
 import caesar
