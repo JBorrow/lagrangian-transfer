@@ -37,6 +37,8 @@ except ImportError:
 from scipy.spatial import cKDTree as KDTree
 from collections import namedtuple
 
+from ltcaesar.halos import FakeCaesar
+
 
 class DMParticles(object):
     """
@@ -426,6 +428,9 @@ class Snapshot(object):
         Opens the data and stuffs the information into the appropriate
         objects.
 
+        catalogue_filename can also be an instance of the FakeCaesar halo
+        structure. This will be interpreted as you would expect.
+
         truncate_ids should be an integer above which the ParticleIDs are all
         truncated. This is helpful as in some simulation codes (e.g. Mufasa)
         star-forming particles have their higher-up bits played with.
@@ -440,7 +445,10 @@ class Snapshot(object):
         self.header = dict(particle_data["Header"].attrs)
 
         if catalogue_filename is not None:
-            self.halo_catalogue = caesar.load(catalogue_filename)
+            if isinstance(catalogue_filename, FakeCaesar):
+                self.halo_catalogue = catalogue_filename
+            else:
+                self.halo_catalogue = caesar.load(catalogue_filename)
         else:
             self.halo_catalogue = None 
 
