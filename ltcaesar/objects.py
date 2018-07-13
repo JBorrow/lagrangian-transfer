@@ -450,11 +450,9 @@ class Snapshot(object):
             else:
                 self.halo_catalogue = caesar.load(catalogue_filename)
         else:
-            self.halo_catalogue = None 
+            self.halo_catalogue = None
 
-        self.dark_matter = DMParticles(
-            particle_data["PartType1"], self.halo_catalogue
-        )
+        self.dark_matter = DMParticles(particle_data["PartType1"], self.halo_catalogue)
 
         try:
             self.baryonic_matter = BaryonicParticles(
