@@ -36,7 +36,7 @@ particle_types = {
 full_output = {}
 
 for name, particle_type in particle_types.items():
-    this_data = data[particle_type]["HaloID"][:50000]
+    this_data = data[particle_type]["HaloID"]
 
     # We are going to index this dictionary with the halo data.
     # Note we need to store the current _index_ in the halo array, as there
