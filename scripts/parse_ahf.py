@@ -30,13 +30,13 @@ data = h5py.File(input_filename, "r")
 particle_types = {
     "dark_matter": "PartType1",
     "gas": "PartType0",
-    "stellar": "PartType1"
+    "stellar": "PartType1",
 }
 
 full_output = {}
 
 for name, particle_type in particle_types.items():
-    this_data = data[particle_type]["HaloID"]
+    this_data = data[particle_type]["HaloID"][:50000]
 
     # We are going to index this dictionary with the halo data.
     # Note we need to store the current _index_ in the halo array, as there
@@ -59,30 +59,28 @@ halo_list = []
 # Because there may be some paritcle types missing from some halos, we need to do
 # this kind of janky loop.
 
-maximal_halo_id = max(
-    [max(x.keys()) for x in full_output.items()]
-)
+maximal_halo_id = max([max(x.keys()) for x in full_output.values()])
 
-for halo_id in tqdm(range(maximal_halo_id+1)):
+for halo_id in tqdm(range(maximal_halo_id + 1)):
     try:
-        dmlist = np.array(full_output["dark_matter"][halo_id])
+        dmlist = np.array(full_output["dark_matter"][halo_id], dtype=int)
         ndm = len(dmlist)
     except KeyError:
-        dmlist = np.array([])
+        dmlist = np.array([], dtype=int)
         ndm = 0
 
     try:
-        glist = np.array(full_output["gas"][halo_id])
+        glist = np.array(full_output["gas"][halo_id], dtype=int)
         ngas = len(glist)
     except KeyError:
-        glist = np.array([])
+        glist = np.array([], dtype=int)
         ngas = 0
 
     try:
-        slist = np.array(full_output["stellar"][halo_id])
+        slist = np.array(full_output["stellar"][halo_id], dtype=int)
         nstar = len(slist)
     except KeyError:
-        slist = np.array([])
+        slist = np.array([], dtype=int)
         nstar = 0
 
     # Now fill the object
@@ -95,19 +93,14 @@ for halo_id in tqdm(range(maximal_halo_id+1)):
             ngas=ngas,
             slist=slist,
             nstar=nstar,
-            GroupID=halo_id
+            GroupID=halo_id,
         )
     )
 
 # Now, let's try to make our FakeCaesar object.
 
-halo_catalogue = FakeCaesar(
-    halos=halo_list,
-    nhalos=len(halo_list)
-)
+halo_catalogue = lt.halos.FakeCaesar(halos=halo_list, nhalos=len(halo_list))
 
 pickle.dump(halo_catalogue, open(output_filename, "wb"))
 
 exit(0)
-
-
