@@ -41,57 +41,6 @@ class FakeCaesarError(Exception):
         self.message = message
 
 
-class FakeCaesar(object):
-    """
-    Fake Caesar object; this looks like a halo finder (i.e. it has the same API).
-
-    Pass a list of halos (.halos), and the number of halos (.nhalos). Then call
-    .check_valid(); this will also attempt to check each halo if it is valid using
-    the same funciton iff it exists.
-    """
-
-    def __init__(self, halos: Union(np.ndarray, List[FakeHalo]), nhalos: int):
-        """
-        Pass me halos, a list of all halos, and nhalos, the total number of halos.
-
-        You may then want to call check_valid on the resulting FakeCaesar object; this
-        will ensure that things are all good and proper.
-        """
-
-        self.halos = halos
-        self.nhalos = nhalos
-
-    def check_valid(self):
-        """
-        Checks if the supplied data is valid. Also calls check_valid on all halos in
-        the halos list, if available (catches AttributeError).
-        """
-
-        # Note that len() is O(1) on numpy arrays and lists.
-        real_number_of_halos = len(self.halos)
-
-        if real_number_of_halos != self.nhalos:
-            raise FakeCaesarError(
-                (
-                    "Nhalos does not match the number of halos "
-                    "actually supplied to FakeCaesar. Actually "
-                    "found {} halos, when we expected {}."
-                ).format(real_number_of_halos, self.nhalos)
-            )
-        else:
-            pass
-
-        # Now attempt to call check_valid on all halos.
-
-        for halo in self.halos:
-            try:
-                halo.check_valid()
-            except AttributeError:
-                pass
-
-        return  # no news is good news.
-
-
 class FakeHalo(object):
     """
     Fake halo object; this has the same API as Caesar.
@@ -177,3 +126,54 @@ class FakeHalo(object):
             pass
 
         return  # no news is good news!
+
+
+class FakeCaesar(object):
+    """
+    Fake Caesar object; this looks like a halo finder (i.e. it has the same API).
+
+    Pass a list of halos (.halos), and the number of halos (.nhalos). Then call
+    .check_valid(); this will also attempt to check each halo if it is valid using
+    the same funciton iff it exists.
+    """
+
+    def __init__(self, halos: Union[np.ndarray, List[FakeHalo]], nhalos: int):
+        """
+        Pass me halos, a list of all halos, and nhalos, the total number of halos.
+
+        You may then want to call check_valid on the resulting FakeCaesar object; this
+        will ensure that things are all good and proper.
+        """
+
+        self.halos = halos
+        self.nhalos = nhalos
+
+    def check_valid(self):
+        """
+        Checks if the supplied data is valid. Also calls check_valid on all halos in
+        the halos list, if available (catches AttributeError).
+        """
+
+        # Note that len() is O(1) on numpy arrays and lists.
+        real_number_of_halos = len(self.halos)
+
+        if real_number_of_halos != self.nhalos:
+            raise FakeCaesarError(
+                (
+                    "Nhalos does not match the number of halos "
+                    "actually supplied to FakeCaesar. Actually "
+                    "found {} halos, when we expected {}."
+                ).format(real_number_of_halos, self.nhalos)
+            )
+        else:
+            pass
+
+        # Now attempt to call check_valid on all halos.
+
+        for halo in self.halos:
+            try:
+                halo.check_valid()
+            except AttributeError:
+                pass
+
+        return  # no news is good news.
