@@ -139,3 +139,31 @@ different types) with the same API that you can use to access your data.
 Note that these files are not portable as of the current version. This is because 
 we hard-code the references to both the catalogue and particle files.
 
+
+Using your own Halo Finder
+--------------------------
+
+Sometimes the Caesar definition is not everything that you want out of your halo
+finder. You are free to use your own halo definitions with ltcaesar, but you will
+need to tell the system about them. We provide an API to do this through 
+`ltcaesar.halos.FakeCaesar` where you will need to re-create an object that _looks_
+like the Caesar API. This will then get passed around and used as if it is a loaded
+Caesar file.
+
+This is quite experimental, so if you expereience any problems let us know. You will
+need the following information (the `FakeHalo` object may be useful for you, but you
+are welcome to use structured arrays).
+
++ `FakeCaesar.nhalos`, number of halos
++ `FakeCaesar.halos`, a list of all of the halos, use the FakeHalo object to give each
+		of these the following property (or just use a structured numpy
+		array, or whatever)
+
++ `FakeHalo.dmlist`, a list of the _indicies_ in the original HDF5 dataset for the
+	       dark matter particles
++ `FakeHalo.ndm`, the number of dark matter particles in the above list
++ `FakeHalo.glist`, same as dmlist but for gas
++ `FakeHalo.ngas`, same as ndm but for gas
++ `FakeHalo.slist`, same as dmlist but for stars
++ `FakeHalo.nstar`, same as ndm but for stars
++ `FakeHalo.GroupID`, the group which this halo belongs to (i.e. its halo id)

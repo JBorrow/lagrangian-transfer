@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="ltcaesar",
-    version="0.2.0",
+    version="0.2.1",
     description="Library for studying transfer between lagrangian regions using Caesar-yt",
     url="https://github.com/JBorrow/lagrangian-transfer",
     author="Josh Borrow, Daniel Angles-Alcazar",

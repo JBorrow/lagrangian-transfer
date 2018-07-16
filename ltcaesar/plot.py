@@ -31,6 +31,9 @@ def bin_x_by_y(x, y, xbins):
         this_mask = np.logical_and(x < this_bin[1], x > this_bin[0])
         this_data = y[this_mask]
 
+        if len(this_data) == 0:
+            continue
+
         output_center_bin.append(this_bin[0] + 0.5 * (this_bin[1] - this_bin[0]))
 
         output_means.append(this_data.mean())
