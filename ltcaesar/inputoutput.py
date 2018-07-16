@@ -73,6 +73,8 @@ class FakeSimulation(object):
         # Load in the particle data like we're a fresh prince
 
         for snap in ["snapshot_ini", "snapshot_end"]:
+            # Set this to false in case we don't set it
+            read_reduced_data_fake_caesar = False
             truncate_ids = self.handle[snap].attrs["truncate_ids"]
 
             if truncate_ids == -1:
@@ -90,7 +92,7 @@ class FakeSimulation(object):
             # Because we do the np.string_ conversion when writing.
             if catalogue_filename == "None":
                 catalogue_filename = None
-            elif catalogue_filename == "fake_caesar":
+            elif catalogue_filename == "FakeCaesar":
                 # We need to read reduced data _later_
                 # This makes the reading logic a little complex, sorry about that.
                 catalogue_filename = None
@@ -108,9 +110,13 @@ class FakeSimulation(object):
 
                 # Gas stellar, and bh halo data.
                 for halo_type in ["gas", "star", "bh"]:
-                    this_data = self.handle["snap"]["fake_caesar"][
-                        "{}_halos".format(halo_type)
-                    ][...]
+                    try:
+                        this_data = self.handle[snap]["fake_caesar"][
+                            "{}_halos".format(halo_type)
+                        ][...]
+                    except KeyError:
+                        # Must not exist. Stick in an empty array!
+                        this_data = np.array([])
 
                     setattr(
                         snapshot.baryonic_matter,
@@ -205,17 +211,23 @@ def write_data_to_file(filename, simulation: Simulation):
 
                 # Dark matter halos
                 fake_caesar_group.create_dataset(
-                    "dark_matter_halos", this_snapshot.dark_matter.halos
+                    "dark_matter_halos", data=this_snapshot.dark_matter.halos
                 )
 
                 # Gas stellar, and bh halo data.
                 for halo_type in ["gas", "star", "bh"]:
-                    fake_caesar_group.create_dataset(
-                        "{}_halos".format(halo_type),
-                        getattr(
-                            this_snapshot.baryonic_matter, "{}_halos".format(halo_type)
-                        ),
-                    )
+                    try:
+                        fake_caesar_group.create_dataset(
+                            "{}_halos".format(halo_type),
+                            data=getattr(
+                                this_snapshot.baryonic_matter,
+                                "{}_halos".format(halo_type),
+                            ),
+                        )
+                    except TypeError:
+                        # The array must be empty, let's just not write it and deal with that
+                        # in the reading.
+                        pass
 
             # H5py does _not_ like NoneTypes or long integers being stored as strings. We
             # have to sort this out by setting truncate_ids = -1 if we have it as "None" as this
