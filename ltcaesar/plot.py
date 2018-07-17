@@ -12,6 +12,9 @@ from .objects import Simulation
 import numpy as np
 import matplotlib.pyplot as plt
 
+from scipy.spatial import cKDTree as KDTree
+from tqdm import tqdm
+
 
 def bin_x_by_y(x, y, xbins):
     """
@@ -31,7 +34,8 @@ def bin_x_by_y(x, y, xbins):
         this_mask = np.logical_and(x < this_bin[1], x > this_bin[0])
         this_data = y[this_mask]
 
-        if len(this_data) == 0:
+        # Check for emptiness
+        if not this_data:
             continue
 
         output_center_bin.append(this_bin[0] + 0.5 * (this_bin[1] - this_bin[0]))
@@ -200,3 +204,152 @@ def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None):
     fig.tight_layout()
 
     return fig, ax
+
+
+def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="gas"):
+    """
+    Creates a kdtree of all of the dark matter particles, and looks for their
+    nearest <x> neighbour. If you pass in dark_matter, we look for the second
+    closest neighbour (as the closest neighbour, of course, is the particle
+    itself).
+
+    A number of caveats to this function are explained inline. Note that it assumes
+    that dark matter is never created or destroyed.
+    """
+
+    boxsize = sim.snapshot_ini.header["BoxSize"]
+    tree = KDTree(sim.snapshot_ini.dark_matter.coordinates, boxsize=boxsize)
+
+    if particle_type == "dark_matter":
+        particle_ini_coordinates = sim.snapshot_ini.dark_matter.coordinates
+        particle_ini_ids = sim.snapshot_ini.dark_matter.ids
+
+        radii, ids = tree.query(particle_ini_coordinates, k=2, n_jobs=-1)
+
+        # Now cut out everything but the second neighbour (we don't care about ourselves)
+        radii = radii[:, 1]
+        ids = ids[:, 1]
+
+        # We do this because we actually want a list of nearest neighbours, not
+        # the real current distances. Note that these are strictly still "sorted"
+        # by ID!
+        particle_ini_neighbour_indicies = ids
+        particle_ini_neighbour_ids = sim.snapshot_ini.dark_matter.ids[ids]
+        paritcle_ini_neighbour_coordinates = sim.snapshot_ini.dark_matter.coordinates[
+            ids
+        ]
+
+    elif particle_type == "gas":
+        particle_ini_coordinates = sim.snapshot_ini.baryonic_matter.gas_coordinates
+        particle_ini_ids = sim.snapshot_ini.baryonic_matter.gas_ids
+
+        radii, ids = tree.query(particle_ini_coordinates, k=1, n_jobs=-1)
+
+        particle_ini_neighbour_indicies = ids
+        particle_ini_neighbour_ids = sim.snapshot_ini.dark_matter.ids[ids]
+        particle_ini_neighbour_coordinates = sim.snapshot_ini.dark_matter.ids[ids]
+    else:
+        raise AttributeError(
+            (
+                "Unable to use {} particle type. Please supply gas or dark_matter "
+                "-- note that the lack of stars at z=inf means that supplying "
+                "stars is insignificant."
+            ).format(particle_type)
+        )
+
+    # Now we need to find the distance to the same particles but at z=0.
+    # This _should_ be a fairly simple thing to do, but somebody decided
+    # that we should have sub-grid physics. That means that:
+    # a) some particles may have been destroyed
+    # b) some particles may have been turned into _more than one particle_
+    # c) particles must have their distances wrapped correctly.
+    # For this reason, we simply go through the particle id list instead of using
+    # numpy routines. We will try to match everything available with its redshift
+    # 100 counterpart.
+    # This may introduce some bias, which needs to be taken care of, but for now
+    # I am afraid this is the best that we can do -- we cannot really track what
+    # died in a black hole.
+
+    # Combine the two ID arrays, if we're using the gas/stars.
+    if particle_type == "gas":
+        # We need to truncate.
+        truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
+
+        particle_ids_end = np.concatenate(
+            (
+                sim.snapshot_end.baryonic_matter.gas_ids % truncate,
+                sim.snapshot_end.baryonic_matter.star_ids % truncate,
+            )
+        )
+
+        particle_coordinates_end = np.concatenate(
+            (
+                sim.snapshot_end.baryonic_matter.gas_coordinates,
+                sim.snapshot_end.baryonic_matter.star_coordinates,
+            )
+        )
+
+        # Now we need to re-sort the ID's to "mix" them up.
+        index_of_unique = np.argsort(particle_ids_end)
+
+        particle_ids_end = particle_ids_end[index_of_unique]
+        particle_coordiantes_end = particle_coordinates_end[index_of_unique]
+    elif particle_type == "dark_matter":
+        # This one is a little easier...
+        particle_ids_end = sim.snapshot_end.dark_matter.ids
+        particle_coordinates_end = sim.snapshot_end.dark_matter.coordinates
+
+    # This is where we assume no DM has been destroyed, and that it is currently
+    # still sorted by ID.
+    particle_end_neighbour_coordinates = sim.snapshot_end.dark_matter.coordinates
+
+    # Now we can do the main processing loop.
+
+    final_radii = np.empty_like(particle_ids_end)
+
+    current_index = 0
+    current_id = particle_ids_end[current_index]
+    current_coordinate = particle_coordinates_end[current_index]
+
+    for this_particle_ini_id, this_neighbour_ini_index in zip(
+        tqdm(particle_ini_ids), particle_ini_neighbour_indicies
+    ):
+        # Check if it's survived, and if so we can operate on it.
+        while this_particle_ini_id == current_id:
+            # Grab neighbouring particle
+            neighbour_coordinate = particle_end_neighbour_coordinates[
+                this_neighbour_ini_index
+            ]
+
+            dx = neighbour_coordinate - current_coordinate
+
+            # Make sure that we wrap correctly
+            dx -= (dx > boxsize * 0.5) * boxsize
+            dx += (dx <= -boxsize * 0.5) * boxsize
+
+            r = np.sum(dx * dx, axis=0)
+
+            final_radii[current_index] = r
+
+            # Iterate; we _need_ to do this in the while loop just in case we have repeated
+            # particles.
+            try:
+                current_index += 1
+                current_id = particle_ids_end[current_index]
+                current_coordinate = particle_coordinates_end[current_index]
+            except IndexError:
+                # We've reached the end, team!
+                final_index = current_index
+                # Kill the loop
+                current_index = -1
+                pass
+
+    # final_radii is actually full of r^2 -- this is to enable us to use vectorized sqrt.
+    final_radii = np.sqrt(final_radii)
+    # We're done!
+
+    assert final_index == len(final_radii), "Current Index: {}, length: {}".format(
+        current_index, len(final_radii)
+    )
+
+    return radii, final_radii
