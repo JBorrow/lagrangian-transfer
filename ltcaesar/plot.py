@@ -16,12 +16,16 @@ from scipy.spatial import cKDTree as KDTree
 from tqdm import tqdm
 
 
-def bin_x_by_y(x, y, xbins):
+def bin_x_by_y(x, y, xbins, average_func=np.mean):
     """
     Takes two quantities, x, y, and bins them in xbins w.r.t. x.
 
     Returns the centers of each x bin, the means of y in each bin, and the
     standard devaitions of y in each bin which can be used as "errors".
+
+    Average_func is the function used to "average" the data; this defaults to
+    np.mean but it should be realtively easy to swap this out for np.median,
+    for instance.
     """
 
     output_means = []
@@ -35,7 +39,7 @@ def bin_x_by_y(x, y, xbins):
         this_data = y[this_mask]
 
         # Check for emptiness
-        if not this_data:
+        if 0 == len(this_data):
             continue
 
         output_center_bin.append(this_bin[0] + 0.5 * (this_bin[1] - this_bin[0]))
@@ -72,7 +76,7 @@ def plot_errorbars_and_filled_region(ax, x, y, yerr, **kwargs):
     return
 
 
-def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None):
+def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None, average_func=np.mean):
     """
     Gets reduced data in the following format: fraction of mass that comes from the
     halo's own lagrangian region, from other lagrangian regions, and from outside
@@ -142,15 +146,15 @@ def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None):
     # Use local routine to fully reduce the data into a single line
 
     halo_mass, mass_fraction_from_lr, mass_fraction_from_lr_stddev = bin_x_by_y(
-        masked_halo_masses, fraction_of_mass_from_lr, bins
+        masked_halo_masses, fraction_of_mass_from_lr, bins, average_func
     )
 
     _, mass_fraction_from_other_lr, mass_fraction_from_other_lr_stddev = bin_x_by_y(
-        masked_halo_masses, fraction_of_mass_from_other_lr, bins
+        masked_halo_masses, fraction_of_mass_from_other_lr, bins, average_func
     )
 
     _, mass_fraction_from_outside_lr, mass_fraction_from_outside_lr_stddev = bin_x_by_y(
-        masked_halo_masses, fraction_of_mass_from_outside_lr, bins
+        masked_halo_masses, fraction_of_mass_from_outside_lr, bins, average_func
     )
 
     return {
@@ -164,14 +168,14 @@ def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None):
     }
 
 
-def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None):
+def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None, average_func=np.mean):
     """
     Sets up and returns a figure, ax object based on the above data reduction.
     """
 
     fig, ax = plt.subplots(1)
 
-    data = mass_fraction_transfer_from_lr_data(sim, bins)
+    data = mass_fraction_transfer_from_lr_data(sim, bins, average_func)
 
     plot_errorbars_and_filled_region(
         ax,
@@ -353,3 +357,31 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     )
 
     return radii, final_radii
+
+
+def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
+    """
+    Makes a histogram plot of the distribution of distances between particles at
+    redshift 0 and redshift infinity. See the data function for more.
+
+    This takes a really long time!
+    """
+
+    boxsize = sim.snapshot_ini.header["BoxSize"]
+
+    gas_data = find_distances_to_nearest_neighbours_data(sim, "gas")
+    dark_matter_data = find_distances_to_nearest_neighbours_data(sim, "dark_matter")
+
+    fig, ax = plt.subplots(1)
+
+    ax.hist(gas_data[1], bins=bins, range=(0, boxsize), histtype="stepfilled", alpha=0.5, label="Gas")
+    ax.hist(dark_matter_data[1], bins=bins, range=(0, boxsize), histtype="stepfilled", alpha=0.5, label="Dark Matter")
+
+    ax.legend(frameon=False)
+
+    ax.set_xlabel("$r_{ngb}$, distance to initial nearest neighbour (simulation units)")
+
+    fig.tight_layout()
+
+    return fig, ax
+
