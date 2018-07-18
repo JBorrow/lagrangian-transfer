@@ -55,7 +55,7 @@ def read_particles(AHF_file, particle_file):
     they line up exactly.
     """
 
-    data = read_AHF_particles(file)
+    data = read_AHF_particles(AHF_file)
 
     switch = {
         "gas": 0,
@@ -69,7 +69,7 @@ def read_particles(AHF_file, particle_file):
         for name, particle_type in switch.items():
             full_particle_type = "PartType{}".format(particle_type)
             
-            this_id_list = handle[full_particle_type]["ParticleIDs"]
+            this_id_list = handle[full_particle_type]["ParticleIDs"][...]
 
             ids[name] = this_id_list
 
@@ -88,9 +88,12 @@ def read_particles(AHF_file, particle_file):
         # the actual HDF5 data. We can do that by using these indicies
         # as well as np.take.
 
+        cleaned_halo_data = np.zeros_like(ids[name]) - 1
+        cleaned_halo_data[indicies] = halo_ids
+
         this_data = {
-            "HaloID": np.take(halo_ids, indicies),
-            "ParticleIDs": np.take(particle_ids, indicies)
+            "HaloID": cleaned_halo_data,
+            "ParticleIDs": ids[name]
         }
 
         output_data[name] = this_data
@@ -118,13 +121,16 @@ for particle_type in ["gas", "dark_matter", "stellar"]:
         except KeyError:
             this_output[halo_id] = [index]
 
-    full_output[name] = this_output
+    full_output[particle_type] = this_output
 
 
 # Because there may be some paritcle types missing from some halos, we need to do
 # this kind of janky loop.
 
+del data
+
 maximal_halo_id = max([max(x.keys()) for x in full_output.values()])
+halo_list = []
 
 for halo_id in tqdm(range(maximal_halo_id + 1)):
     try:
@@ -150,17 +156,18 @@ for halo_id in tqdm(range(maximal_halo_id + 1)):
 
     # Now fill the object
 
-    halo_list.append(
-        lt.halos.FakeHalo(
-            dmlist=dmlist,
-            ndm=ndm,
-            glist=glist,
-            ngas=ngas,
-            slist=slist,
-            nstar=nstar,
-            GroupID=halo_id,
+    if (nstar != 0) and (ngas != 0) and (ndm !=0 ):
+        halo_list.append(
+            lt.halos.FakeHalo(
+                dmlist=dmlist,
+                ndm=ndm,
+                glist=glist,
+                ngas=ngas,
+                slist=slist,
+                nstar=nstar,
+                GroupID=halo_id,
+            )
         )
-    )
 
 # Now, let's try to make our FakeCaesar object.
 
