@@ -1,5 +1,5 @@
 """
-This script parses AHF-style halos so that they can be used with the FakeCaesar object.
+This script parses Gadget-style halos so that they can be used with the FakeCaesar object.
 
 It then pickles that object so that it can be loaded again in the future.
 
@@ -7,7 +7,7 @@ You should invoke it as follows:
 
     python3 parse_ahf.py <filename of hdf5 dataset> <filename of output pickle>
 
-Note that AHF stores the individual particle/halo data in the snapshots themselves.
+Note that Gadget stores the individual particle/halo data in the snapshots themselves.
 
 This script is probably super slow because it uses a bunch of dynamic memory allocations.
 """

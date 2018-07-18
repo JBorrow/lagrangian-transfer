@@ -1,5 +1,6 @@
 """
-Parses the ahf .particles file.
+Parses the AHF .particles file. This also requires access to the original particle file; you will need to run it as follows: python3 parse_ahf.py <AHF particles file> <HDF5 file> <output pickle file> 
+This will take a _very_ long time to run (of order hours when using a 512^3 sim).
 """
 
 import ltcaesar as lt
@@ -18,6 +19,7 @@ output_filename = sys.argv[3]
 
 # First, we need to use Daniel's functions to parse the data...
 
+
 def read_AHF_particles(file):
     """
     Daniel's old-school reading function for AHF halo data.
@@ -28,18 +30,22 @@ def read_AHF_particles(file):
     I don't want to touch this, hence why it is wrapped in read_particles(file).
     """
     f = open(file, "r")
-    Nhalos = int( f.readline() )
+    Nhalos = int(f.readline())
     f.close()
-    df = pd.read_csv(file, delim_whitespace=True, names=['id','Ptype'], header=0)
-    Nlines = df['id'].size
+    df = pd.read_csv(file, delim_whitespace=True, names=["id", "Ptype"], header=0)
+    Nlines = df["id"].size
     Ndata = Nlines - Nhalos
-    data = { 'id':np.zeros(Ndata,dtype='int64'), 'Ptype':np.zeros(Ndata,dtype='int8'), 'HaloID':np.zeros(Ndata,dtype='int32') }
+    data = {
+        "id": np.zeros(Ndata, dtype="int64"),
+        "Ptype": np.zeros(Ndata, dtype="int8"),
+        "HaloID": np.zeros(Ndata, dtype="int32"),
+    }
     jbeg = 0
     for i in range(0, Nhalos):
-        jend = jbeg + df['id'][ jbeg+i ]
-        data['id'][ jbeg : jend ] = df['id'][ jbeg+i+1 : jend+i+1 ].values
-        data['Ptype'][ jbeg : jend ] = df['Ptype'][ jbeg+i+1 : jend+i+1 ].values
-        data['HaloID'][ jbeg : jend ] = df['Ptype'][ jbeg+i ]
+        jend = jbeg + df["id"][jbeg + i]
+        data["id"][jbeg:jend] = df["id"][jbeg + i + 1 : jend + i + 1].values
+        data["Ptype"][jbeg:jend] = df["Ptype"][jbeg + i + 1 : jend + i + 1].values
+        data["HaloID"][jbeg:jend] = df["Ptype"][jbeg + i]
         jbeg = jend
     return data
 
@@ -57,18 +63,14 @@ def read_particles(AHF_file, particle_file):
 
     data = read_AHF_particles(AHF_file)
 
-    switch = {
-        "gas": 0,
-        "dark_matter": 1,
-        "stellar": 4
-    }
+    switch = {"gas": 0, "dark_matter": 1, "stellar": 4}
 
     ids = {}
 
     with h5py.File(particle_file, "r") as handle:
         for name, particle_type in switch.items():
             full_particle_type = "PartType{}".format(particle_type)
-            
+
             this_id_list = handle[full_particle_type]["ParticleIDs"][...]
 
             ids[name] = this_id_list
@@ -91,10 +93,7 @@ def read_particles(AHF_file, particle_file):
         cleaned_halo_data = np.zeros_like(ids[name]) - 1
         cleaned_halo_data[indicies] = halo_ids
 
-        this_data = {
-            "HaloID": cleaned_halo_data,
-            "ParticleIDs": ids[name]
-        }
+        this_data = {"HaloID": cleaned_halo_data, "ParticleIDs": ids[name]}
 
         output_data[name] = this_data
 
@@ -155,8 +154,12 @@ for halo_id in tqdm(range(maximal_halo_id + 1)):
         nstar = 0
 
     # Now fill the object
-
-    if (nstar != 0) and (ngas != 0) and (ndm !=0 ):
+    
+    # With AHF, there are a _lot_ of empty halos. This could be optimized quite
+    # heavily in the future, but right now I will just leave this.
+    # Note: you could pre-build a list of only the occupied halos by running
+    # through all of the halo ids.
+    if (nstar != 0) and (ngas != 0) and (ndm != 0):
         halo_list.append(
             lt.halos.FakeHalo(
                 dmlist=dmlist,
