@@ -25,6 +25,12 @@ fake_caesar_filename = str(sys.argv[3])
 # FakeCaesar object.
 caesar_filename = pickle.load(open(fake_caesar_filename, "rb"))
 
+# We need to make sure that the halos are contiguous.
+for index, halo in enumerate(caesar_filename.halos):
+    halo.GroupID = index
+
+print([halo.GroupID for halo in caesar_filename.halos])
+
 # Load the data using our library
 
 simulation_ini = lt.Snapshot(snapshot_filename_ini)
