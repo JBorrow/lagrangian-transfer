@@ -26,8 +26,16 @@ fake_caesar_filename = str(sys.argv[3])
 caesar_filename = pickle.load(open(fake_caesar_filename, "rb"))
 
 # We need to make sure that the halos are contiguous.
+# We'll also make sure that the maximum halo id ends up as -1
+# as this appears to be the AHF convention.
+
+max_halo_id = max([halo.GroupID for halo in caesar_filename.halos])
+
 for index, halo in enumerate(caesar_filename.halos):
-    halo.GroupID = index
+    if halo.GroupID != max_halo_id:
+        halo.GroupID = index
+    else:
+        halo.GroupID = -1
 
 print([halo.GroupID for halo in caesar_filename.halos])
 
