@@ -76,7 +76,9 @@ def plot_errorbars_and_filled_region(ax, x, y, yerr, **kwargs):
     return
 
 
-def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None, average_func=np.mean):
+def mass_fraction_transfer_from_lr_data(
+    sim: Simulation, bins=None, average_func=np.mean
+):
     """
     Gets reduced data in the following format: fraction of mass that comes from the
     halo's own lagrangian region, from other lagrangian regions, and from outside
@@ -168,7 +170,9 @@ def mass_fraction_transfer_from_lr_data(sim: Simulation, bins=None, average_func
     }
 
 
-def mass_fraction_transfer_from_lr_plot(sim: Simulation, bins=None, average_func=np.mean):
+def mass_fraction_transfer_from_lr_plot(
+    sim: Simulation, bins=None, average_func=np.mean
+):
     """
     Sets up and returns a figure, ax object based on the above data reduction.
     """
@@ -374,8 +378,22 @@ def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
 
     fig, ax = plt.subplots(1)
 
-    ax.hist(gas_data[1], bins=bins, range=(0, boxsize), histtype="stepfilled", alpha=0.5, label="Gas")
-    ax.hist(dark_matter_data[1], bins=bins, range=(0, boxsize), histtype="stepfilled", alpha=0.5, label="Dark Matter")
+    ax.hist(
+        gas_data[1],
+        bins=bins,
+        range=(0, boxsize),
+        histtype="stepfilled",
+        alpha=0.5,
+        label="Gas",
+    )
+    ax.hist(
+        dark_matter_data[1],
+        bins=bins,
+        range=(0, boxsize),
+        histtype="stepfilled",
+        alpha=0.5,
+        label="Dark Matter",
+    )
 
     ax.legend(frameon=False)
 
@@ -384,4 +402,3 @@ def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
     fig.tight_layout()
 
     return fig, ax
-
