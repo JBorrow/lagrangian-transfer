@@ -77,12 +77,15 @@ def plot_errorbars_and_filled_region(ax, x, y, yerr, **kwargs):
 
 
 def mass_fraction_transfer_from_lr_data(
-    sim: Simulation, bins=None, average_func=np.mean
+    sim: Simulation, bins=None, average_func=np.mean, use=("stellar", "gas")
 ):
     """
     Gets reduced data in the following format: fraction of mass that comes from the
     halo's own lagrangian region, from other lagrangian regions, and from outside
     any lagrangian region, all as a function of halo mass.
+
+    The tuple use=("stellar", "gas") is the components that we should include in
+    the final calculation.
 
     The halo mass is taken as log10(M)
 
@@ -106,37 +109,32 @@ def mass_fraction_transfer_from_lr_data(
 
     # First, we need to mask out the halos with no gas or stellar content.
 
-    mask = np.logical_and(sim.stellar_mass_in_halo != 0, sim.gas_mass_in_halo != 0)
+    masks = [getattr(sim, "{}_mass_in_halo".format(x)) != 0 for x in use]
+    mask = np.logical_and.reduce(masks)
 
     # Grab a bunch of masked arrays that are going to be used in the analysis
-    masked_gas_mass = sim.gas_mass_in_halo[mask]
-    masked_stellar_mass = sim.stellar_mass_in_halo[mask]
-    masked_gas_lagrangian_mass = sim.gas_mass_in_halo_from_lagrangian[mask]
-    masked_stellar_lagrangian_mass = sim.stellar_mass_in_halo_from_lagrangian[mask]
-    masked_gas_other_lagrangian_mass = sim.gas_mass_in_halo_from_other_lagrangian[mask]
-    masked_stellar_other_lagrangian_mass = sim.stellar_mass_in_halo_from_other_lagrangian[
-        mask
-    ]
-    masked_gas_outside_lagrangian_mass = sim.gas_mass_in_halo_from_outside_lagrangian[
-        mask
-    ]
-    masked_stellar_outside_lagrangian_mass = sim.stellar_mass_in_halo_from_outside_lagrangian[
-        mask
-    ]
+    masked_mass = sum([getattr(sim, "{}_mass_in_halo".format(x))[mask] for x in use])
+    masked_lagrangian_mass = sum(
+        [getattr(sim, "{}_mass_in_halo_from_lagrangian".format(x))[mask] for x in use]
+    )
+    masked_other_lagrangian_mass = sum(
+        [
+            getattr(sim, "{}_mass_in_halo_from_other_lagrangian".format(x))[mask]
+            for x in use
+        ]
+    )
+    masked_outside_lagrangian_mass = sum(
+        [
+            getattr(sim, "{}_mass_in_halo_from_outside_lagrangian".format(x))[mask]
+            for x in use
+        ]
+    )
 
     # Now reduce the data into fractions
-    total_mass = masked_gas_mass + masked_stellar_mass
-    total_mass_from_lr = masked_gas_lagrangian_mass + masked_stellar_lagrangian_mass
-    total_mass_from_other_lr = (
-        masked_gas_other_lagrangian_mass + masked_stellar_other_lagrangian_mass
-    )
-    total_mass_from_outside_lr = (
-        masked_gas_outside_lagrangian_mass + masked_stellar_outside_lagrangian_mass
-    )
 
-    fraction_of_mass_from_lr = total_mass_from_lr / total_mass
-    fraction_of_mass_from_other_lr = total_mass_from_other_lr / total_mass
-    fraction_of_mass_from_outside_lr = total_mass_from_outside_lr / total_mass
+    fraction_of_mass_from_lr = masked_lagrangian_mass / masked_mass
+    fraction_of_mass_from_other_lr = masked_other_lagrangian_mass / masked_mass
+    fraction_of_mass_from_outside_lr = masked_outside_lagrangian_mass / masked_mass
 
     masked_halo_masses = np.log10(sim.dark_matter_mass_in_halo[mask])
 
@@ -171,7 +169,7 @@ def mass_fraction_transfer_from_lr_data(
 
 
 def mass_fraction_transfer_from_lr_plot(
-    sim: Simulation, bins=None, average_func=np.mean
+    sim: Simulation, bins=None, average_func=np.mean, use=("stellar", "gas")
 ):
     """
     Sets up and returns a figure, ax object based on the above data reduction.
@@ -179,7 +177,7 @@ def mass_fraction_transfer_from_lr_plot(
 
     fig, ax = plt.subplots(1)
 
-    data = mass_fraction_transfer_from_lr_data(sim, bins, average_func)
+    data = mass_fraction_transfer_from_lr_data(sim, bins, average_func, use=use)
 
     plot_errorbars_and_filled_region(
         ax,
