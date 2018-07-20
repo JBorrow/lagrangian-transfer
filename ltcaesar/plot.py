@@ -219,6 +219,12 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     closest neighbour (as the closest neighbour, of course, is the particle
     itself).
 
+    Returns:
+
+        + Distance to nearest neighbours at z=ini
+        + Distance to that same neighbour at z=end
+        + Particle _indicies_ of DM neighbours (useful for testing).
+
     A number of caveats to this function are explained inline. Note that it assumes
     that dark matter is never created or destroyed.
     """
@@ -295,7 +301,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
             )
         )
 
-        # Now we need to re-sort the ID's to "mix" them up.
+        # Now we need to re-sort the ID's to "mix" them up (stars and gas).
         index_of_unique = np.argsort(particle_ids_end)
 
         particle_ids_end = particle_ids_end[index_of_unique]
@@ -311,14 +317,23 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
 
     # Now we can do the main processing loop.
 
-    final_radii = np.empty_like(particle_ids_end)
+    final_radii = np.empty(len(particle_ids_end), dtype=float)
 
     current_index = 0
     current_id = particle_ids_end[current_index]
     current_coordinate = particle_coordinates_end[current_index]
 
+    # A few consistency checks
+    assert len(final_radii) == len(particle_ids_end)
+    assert len(particle_ini_ids) == len(particle_ini_neighbour_indicies)
+    assert len(current_coordinate) == 3
+    
+    import pdb
+    pdb.set_trace()
+
     for this_particle_ini_id, this_neighbour_ini_index in zip(
-        tqdm(particle_ini_ids), particle_ini_neighbour_indicies
+        tqdm(particle_ini_ids, desc="Distance calculation"),
+        particle_ini_neighbour_indicies,
     ):
         # Check if it's survived, and if so we can operate on it.
         while this_particle_ini_id == current_id:
@@ -339,6 +354,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
 
             # Iterate; we _need_ to do this in the while loop just in case we have repeated
             # particles.
+
             try:
                 current_index += 1
                 current_id = particle_ids_end[current_index]
@@ -358,7 +374,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
         current_index, len(final_radii)
     )
 
-    return radii, final_radii
+    return radii, final_radii, particle_ini_neighbour_indicies
 
 
 def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
