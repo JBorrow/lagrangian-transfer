@@ -259,7 +259,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
 
         particle_ini_neighbour_indicies = ids
         particle_ini_neighbour_ids = sim.snapshot_ini.dark_matter.ids[ids]
-        particle_ini_neighbour_coordinates = sim.snapshot_ini.dark_matter.ids[ids]
+        particle_ini_neighbour_coordinates = sim.snapshot_ini.dark_matter.coordinates[ids]
     else:
         raise AttributeError(
             (
@@ -268,6 +268,9 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
                 "stars is insignificant."
             ).format(particle_type)
         )
+
+    # Quick check that our indexing isn't messed up!
+    assert len(particle_ini_neighbour_coordinates[0]) == 3
 
     # Now we need to find the distance to the same particles but at z=0.
     # This _should_ be a fairly simple thing to do, but somebody decided
@@ -294,7 +297,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
             )
         )
 
-        particle_coordinates_end = np.concatenate(
+        particle_coordinates_end = np.vstack(
             (
                 sim.snapshot_end.baryonic_matter.gas_coordinates,
                 sim.snapshot_end.baryonic_matter.star_coordinates,
@@ -327,9 +330,6 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     assert len(final_radii) == len(particle_ids_end)
     assert len(particle_ini_ids) == len(particle_ini_neighbour_indicies)
     assert len(current_coordinate) == 3
-    
-    import pdb
-    pdb.set_trace()
 
     for this_particle_ini_id, this_neighbour_ini_index in zip(
         tqdm(particle_ini_ids, desc="Distance calculation"),
@@ -348,7 +348,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
             dx -= (dx > boxsize * 0.5) * boxsize
             dx += (dx <= -boxsize * 0.5) * boxsize
 
-            r = np.sum(dx * dx, axis=0)
+            r = np.sum(dx * dx)
 
             final_radii[current_index] = r
 
@@ -370,6 +370,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     final_radii = np.sqrt(final_radii)
     # We're done!
 
+    # This also crashes when we don't indexerror (i.e. we don't reach the end)
     assert final_index == len(final_radii), "Current Index: {}, length: {}".format(
         current_index, len(final_radii)
     )
