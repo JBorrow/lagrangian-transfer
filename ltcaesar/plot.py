@@ -259,7 +259,9 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
 
         particle_ini_neighbour_indicies = ids
         particle_ini_neighbour_ids = sim.snapshot_ini.dark_matter.ids[ids]
-        particle_ini_neighbour_coordinates = sim.snapshot_ini.dark_matter.coordinates[ids]
+        particle_ini_neighbour_coordinates = sim.snapshot_ini.dark_matter.coordinates[
+            ids
+        ]
     else:
         raise AttributeError(
             (
@@ -268,9 +270,6 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
                 "stars is insignificant."
             ).format(particle_type)
         )
-
-    # Quick check that our indexing isn't messed up!
-    assert len(particle_ini_neighbour_coordinates[0]) == 3
 
     # Now we need to find the distance to the same particles but at z=0.
     # This _should_ be a fairly simple thing to do, but somebody decided
@@ -285,95 +284,104 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     # I am afraid this is the best that we can do -- we cannot really track what
     # died in a black hole.
 
-    # Combine the two ID arrays, if we're using the gas/stars.
-    if particle_type == "gas":
-        # We need to truncate.
-        truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
-
-        particle_ids_end = np.concatenate(
-            (
-                sim.snapshot_end.baryonic_matter.gas_ids % truncate,
-                sim.snapshot_end.baryonic_matter.star_ids % truncate,
-            )
-        )
-
-        particle_coordinates_end = np.vstack(
-            (
-                sim.snapshot_end.baryonic_matter.gas_coordinates,
-                sim.snapshot_end.baryonic_matter.star_coordinates,
-            )
-        )
-
-        # Now we need to re-sort the ID's to "mix" them up (stars and gas).
-        index_of_unique = np.argsort(particle_ids_end)
-
-        particle_ids_end = particle_ids_end[index_of_unique]
-        particle_coordiantes_end = particle_coordinates_end[index_of_unique]
-    elif particle_type == "dark_matter":
-        # This one is a little easier...
-        particle_ids_end = sim.snapshot_end.dark_matter.ids
-        particle_coordinates_end = sim.snapshot_end.dark_matter.coordinates
-
-    # This is where we assume no DM has been destroyed, and that it is currently
-    # still sorted by ID.
-    particle_end_neighbour_coordinates = sim.snapshot_end.dark_matter.coordinates
-
     # Now we can do the main processing loop.
 
-    final_radii = np.empty(len(particle_ids_end), dtype=float)
-
-    current_index = 0
-    current_id = particle_ids_end[current_index]
-    current_coordinate = particle_coordinates_end[current_index]
-
-    # A few consistency checks
-    assert len(final_radii) == len(particle_ids_end)
-    assert len(particle_ini_ids) == len(particle_ini_neighbour_indicies)
-    assert len(current_coordinate) == 3
-
-    for this_particle_ini_id, this_neighbour_ini_index in zip(
-        tqdm(particle_ini_ids, desc="Distance calculation"),
-        particle_ini_neighbour_indicies,
+    def single_processing_loop(
+        ids_end, coords_end, ids_ini, neighbour_coords_end, boxsize
     ):
-        # Check if it's survived, and if so we can operate on it.
-        while this_particle_ini_id == current_id:
-            # Grab neighbouring particle
-            neighbour_coordinate = particle_end_neighbour_coordinates[
-                this_neighbour_ini_index
-            ]
+        """
+        We break this out into a single function to try to keep things general; we
+        need to actually loop over gas and stars. Trying to combine the star and
+        gas arrays initially before doing this loop was an abject failure.
+        """
 
-            dx = neighbour_coordinate - current_coordinate
+        final_dx = np.empty_like(coords_end)
 
-            # Make sure that we wrap correctly
-            dx -= (dx > boxsize * 0.5) * boxsize
-            dx += (dx <= -boxsize * 0.5) * boxsize
+        current_index = 0
+        current_id = ids_end[current_index]
+        current_coordinate = coords_end[current_index]
 
-            r = np.sum(dx * dx)
+        # A few consistency checks
+        assert len(current_coordinate) == 3
 
-            final_radii[current_index] = r
+        for this_particle_ini_id, this_neighbour_coordinate in zip(
+            tqdm(ids_ini, desc="Distance calculation"), neighbour_coords_end
+        ):
+            # Check if it's survived, and if so we can operate on it.
+            while this_particle_ini_id == current_id:
+                # Grab neighbouring particle
 
-            # Iterate; we _need_ to do this in the while loop just in case we have repeated
-            # particles.
+                final_dx[current_index] = this_neighbour_coordinate - current_coordinate
 
-            try:
-                current_index += 1
-                current_id = particle_ids_end[current_index]
-                current_coordinate = particle_coordinates_end[current_index]
-            except IndexError:
-                # We've reached the end, team!
-                final_index = current_index
-                # Kill the loop
-                current_index = -1
-                pass
+                # Iterate; we _need_ to do this in the while loop just in case we have repeated
+                # particles.
 
-    # final_radii is actually full of r^2 -- this is to enable us to use vectorized sqrt.
-    final_radii = np.sqrt(final_radii)
-    # We're done!
+                try:
+                    current_index += 1
+                    current_id = ids_end[current_index]
+                    current_coordinate = coords_end[current_index]
+                except IndexError:
+                    # We've reached the end, team!
+                    final_index = current_index
+                    # Kill the loop
+                    current_index = -1
+                    pass
 
-    # This also crashes when we don't indexerror (i.e. we don't reach the end)
-    assert final_index == len(final_radii), "Current Index: {}, length: {}".format(
-        current_index, len(final_radii)
-    )
+        # Now wrap the box and convert to r.
+        final_dx -= (final_dx > boxsize * 0.5) * boxsize
+        final_dx += (final_dx <= -boxsize * 0.5) * boxsize
+
+        final_radii = np.sqrt(np.sum(final_dx * final_dx, axis=1))
+        # We're done!
+
+        assert (final_radii <= boxsize).all()
+        assert final_index == len(final_radii), "Current Index: {}, length: {}".format(
+            current_index, len(final_radii)
+        )
+
+        return final_radii
+
+    # Select out the relevant properties and run
+
+    # This is where we assume no DM has been destroyed, and that it is currently
+    # still sorted by ID. We need to re-mix it up so that we can just loop over the
+    # coordinates (i.e. sort them by their pair coordinate).
+    particle_end_neighbour_coordinates = sim.snapshot_end.dark_matter.coordinates[
+        particle_ini_neighbour_indicies
+    ]
+
+    if particle_type == "gas":
+        # We need to do both gas and stars.
+
+        truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
+
+        final_radii_gas = single_processing_loop(
+            sim.snapshot_end.baryonic_matter.gas_ids % truncate,
+            sim.snapshot_end.baryonic_matter.gas_coordinates,
+            particle_ini_ids,
+            particle_end_neighbour_coordinates,
+            boxsize,
+        )
+
+        final_radii_star = single_processing_loop(
+            sim.snapshot_end.baryonic_matter.star_ids % truncate,
+            sim.snapshot_end.baryonic_matter.star_coordinates,
+            particle_ini_ids,
+            particle_end_neighbour_coordinates,
+            boxsize,
+        )
+
+        final_radii = np.concatenate([final_radii_gas, final_radii_star])
+    if particle_type == "dark_matter":
+        # Only the DM this time!
+
+        final_radii = single_processing_loop(
+            sim.snapshot_end.dark_matter.ids,
+            sim.snapshot_end.dark_matter.coordinates,
+            particle_ini_ids,
+            particle_end_neighbour_coordinates,
+            boxsize,
+        )
 
     return radii, final_radii, particle_ini_neighbour_indicies
 
@@ -388,8 +396,8 @@ def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
 
     boxsize = sim.snapshot_ini.header["BoxSize"]
 
-    gas_data = find_distances_to_nearest_neighbours_data(sim, "gas")
     dark_matter_data = find_distances_to_nearest_neighbours_data(sim, "dark_matter")
+    gas_data = find_distances_to_nearest_neighbours_data(sim, "gas")
 
     fig, ax = plt.subplots(1)
 
