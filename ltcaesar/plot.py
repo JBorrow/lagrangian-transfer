@@ -251,7 +251,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
             ids
         ]
 
-    elif particle_type == "gas":
+    elif particle_type == "gas" or particle_type == "stars":
         particle_ini_coordinates = sim.snapshot_ini.baryonic_matter.gas_coordinates
         particle_ini_ids = sim.snapshot_ini.baryonic_matter.gas_ids
 
@@ -265,7 +265,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     else:
         raise AttributeError(
             (
-                "Unable to use {} particle type. Please supply gas or dark_matter "
+                "Unable to use {} particle type. Please supply gas, stars or dark_matter "
                 "-- note that the lack of stars at z=inf means that supplying "
                 "stars is insignificant."
             ).format(particle_type)
@@ -305,7 +305,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
         assert len(current_coordinate) == 3
 
         for this_particle_ini_id, this_neighbour_coordinate in zip(
-            tqdm(ids_ini, desc="Distance calculation"), neighbour_coords_end
+            tqdm(ids_ini, desc="Distance calculation [{}]".format(particle_type)), neighbour_coords_end
         ):
             # Check if it's survived, and if so we can operate on it.
             while this_particle_ini_id == current_id:
@@ -351,30 +351,26 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     ]
 
     if particle_type == "gas":
-        # We need to do both gas and stars.
-
         truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
 
-        final_radii_gas = single_processing_loop(
+        final_radii = single_processing_loop(
             sim.snapshot_end.baryonic_matter.gas_ids % truncate,
             sim.snapshot_end.baryonic_matter.gas_coordinates,
             particle_ini_ids,
             particle_end_neighbour_coordinates,
             boxsize,
         )
+    elif particle_type == "stars":
+        truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
 
-        final_radii_star = single_processing_loop(
+        final_radii = single_processing_loop(
             sim.snapshot_end.baryonic_matter.star_ids % truncate,
             sim.snapshot_end.baryonic_matter.star_coordinates,
             particle_ini_ids,
             particle_end_neighbour_coordinates,
             boxsize,
         )
-
-        final_radii = np.concatenate([final_radii_gas, final_radii_star])
     if particle_type == "dark_matter":
-        # Only the DM this time!
-
         final_radii = single_processing_loop(
             sim.snapshot_end.dark_matter.ids,
             sim.snapshot_end.dark_matter.coordinates,
@@ -398,6 +394,7 @@ def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
 
     dark_matter_data = find_distances_to_nearest_neighbours_data(sim, "dark_matter")
     gas_data = find_distances_to_nearest_neighbours_data(sim, "gas")
+    star_data = find_distances_to_nearest_neighbours_data(sim, "stars")
 
     fig, ax = plt.subplots(1)
 
@@ -416,6 +413,14 @@ def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
         histtype="stepfilled",
         alpha=0.5,
         label="Dark Matter",
+    )
+    ax.hist(
+        star_data[1],
+        bins=bins,
+        range=(0, boxsize),
+        histtype="stepfilled",
+        alpha=0.5,
+        label="Stars",
     )
 
     ax.legend(frameon=False)
