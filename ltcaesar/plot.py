@@ -287,7 +287,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     # Now we can do the main processing loop.
 
     def single_processing_loop(
-        ids_end, coords_end, ids_ini, neighbour_coords_end, boxsize
+        ids_end, coords_end, ids_ini, neighbour_coords_end, neighbour_indicies, boxsize
     ):
         """
         We break this out into a single function to try to keep things general; we
@@ -296,6 +296,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
         """
 
         final_dx = np.empty_like(coords_end)
+        final_neighbour_indicies = np.empty(len(coords_end), dtype=int)
 
         current_index = 0
         current_id = ids_end[current_index]
@@ -304,14 +305,21 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
         # A few consistency checks
         assert len(current_coordinate) == 3
 
-        for this_particle_ini_id, this_neighbour_coordinate in zip(
-            tqdm(ids_ini, desc="Distance calculation [{}]".format(particle_type)), neighbour_coords_end
+        for (
+            this_particle_ini_id,
+            this_neighbour_coordinate,
+            this_neighbour_index,
+        ) in zip(
+            tqdm(ids_ini, desc="Distance calculation [{}]".format(particle_type)),
+            neighbour_coords_end,
+            neighbour_indicies,
         ):
             # Check if it's survived, and if so we can operate on it.
             while this_particle_ini_id == current_id:
                 # Grab neighbouring particle
 
                 final_dx[current_index] = this_neighbour_coordinate - current_coordinate
+                final_neighbour_indicies[current_index] = this_neighbour_index
 
                 # Iterate; we _need_ to do this in the while loop just in case we have repeated
                 # particles.
@@ -339,7 +347,7 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
             current_index, len(final_radii)
         )
 
-        return final_radii
+        return final_radii, final_neighbour_indicies
 
     # Select out the relevant properties and run
 
@@ -353,33 +361,36 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     if particle_type == "gas":
         truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
 
-        final_radii = single_processing_loop(
+        final_radii, final_neighbour_indicies = single_processing_loop(
             sim.snapshot_end.baryonic_matter.gas_ids % truncate,
             sim.snapshot_end.baryonic_matter.gas_coordinates,
             particle_ini_ids,
             particle_end_neighbour_coordinates,
+            particle_ini_neighbour_indicies,
             boxsize,
         )
     elif particle_type == "stars":
         truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
 
-        final_radii = single_processing_loop(
+        final_radii, final_neighbour_indicies = single_processing_loop(
             sim.snapshot_end.baryonic_matter.star_ids % truncate,
             sim.snapshot_end.baryonic_matter.star_coordinates,
             particle_ini_ids,
             particle_end_neighbour_coordinates,
+            particle_ini_neighbour_indicies,
             boxsize,
         )
     if particle_type == "dark_matter":
-        final_radii = single_processing_loop(
+        final_radii, final_neighbour_indicies = single_processing_loop(
             sim.snapshot_end.dark_matter.ids,
             sim.snapshot_end.dark_matter.coordinates,
             particle_ini_ids,
             particle_end_neighbour_coordinates,
+            particle_ini_neighbour_indicies,
             boxsize,
         )
 
-    return radii, final_radii, particle_ini_neighbour_indicies
+    return radii, final_radii, particle_ini_neighbour_indicies, final_neighbour_indicies
 
 
 def find_distances_to_nearest_neighbours_plot(sim: Simulation, bins=100):
