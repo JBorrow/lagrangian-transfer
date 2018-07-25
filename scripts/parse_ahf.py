@@ -128,10 +128,10 @@ for particle_type in ["gas", "dark_matter", "stellar"]:
 
 del data
 
-maximal_halo_id = max([max(x.keys()) for x in full_output.values()])
+halo_ids = np.unique(np.flatten([x.keys() for x in full_output.values()]))
 halo_list = []
 
-for halo_id in tqdm(range(maximal_halo_id + 1)):
+for halo_id in tqdm(halo_ids):
     try:
         dmlist = np.array(full_output["dark_matter"][halo_id], dtype=int)
         ndm = len(dmlist)
