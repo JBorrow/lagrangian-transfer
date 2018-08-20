@@ -36,7 +36,7 @@ class FakeCaesarError(Exception):
     fails.
     """
 
-    def __init__(self, expression, message):
+    def __init__(self, expression, message=None):
         self.expression = expression
         self.message = message
 
@@ -79,7 +79,7 @@ class FakeHalo(object):
 
         return
 
-    def check_valid():
+    def check_valid(self):
         """
         Checks if we are a valid halo!
         """
