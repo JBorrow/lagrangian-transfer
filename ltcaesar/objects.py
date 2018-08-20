@@ -326,13 +326,15 @@ class BaryonicParticles(object):
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
 
-        truncate = self.truncate_ids + 1
-
         # The _first_ id needs truncating just in case.
         if self.truncate_ids is not None:
+            truncate = self.truncate_ids + 1
             truncated_gas_id = gas_current_id % truncate
             truncated_star_id = star_current_id % truncate
         else:
+            # We use truncate as a check later; local variables are faster
+            # than those from their parent class (in CPython).
+            truncate = None
             truncated_gas_id = gas_current_id
             truncated_star_id = star_current_id
 
@@ -352,7 +354,7 @@ class BaryonicParticles(object):
                 try:
                     gas_current_id = self.gas_ids[gas_current_index]
 
-                    if self.truncate_ids is not None:
+                    if truncate is not None:
                         # We do this truncation on the fly as it is more memory efficient.
                         truncated_gas_id = gas_current_id % truncate
                     else:
@@ -378,7 +380,7 @@ class BaryonicParticles(object):
                 try:
                     star_current_id = self.star_ids[star_current_index]
 
-                    if self.truncate_ids is not None:
+                    if truncate is not None:
                         truncated_star_id = star_current_id % truncate
                     else:
                         truncated_star_id = star_current_id

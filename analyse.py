@@ -16,15 +16,26 @@ import ltcaesar as lt
 
 import sys
 
+# This needs to be converted to a proper parser soon.
 snapshot_filename_ini = str(sys.argv[1])
 snapshot_filename_end = str(sys.argv[2])
 caesar_filename = str(sys.argv[3])
+
+try:
+    no_trunc = str(sys.argv[4]) == "notrunc"
+except IndexError:
+    no_trunc = False
 
 # Load the data using our library
 
 simulation_ini = lt.Snapshot(snapshot_filename_ini)
 # Get the max initial gas ID to truncate by
-truncate_id = simulation_ini.baryonic_matter.gas_ids.max()
+if no_trunc:
+    truncate_id = None
+    print("Note: leaving IDs un-truncated")
+else:
+    truncate_id = simulation_ini.baryonic_matter.gas_ids.max()
+
 simulation_end = lt.Snapshot(
     snapshot_filename_end, caesar_filename, truncate_ids=truncate_id
 )
