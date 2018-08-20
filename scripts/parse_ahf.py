@@ -128,7 +128,8 @@ for particle_type in ["gas", "dark_matter", "stellar"]:
 
 del data
 
-halo_ids = np.unique(np.flatten([x.keys() for x in full_output.values()]))
+# Halo IDs are defined by the DM
+halo_ids = np.array([int(x) for x in full_output["dark_matter"].keys()])
 halo_list = []
 
 for halo_id in tqdm(halo_ids):
