@@ -197,4 +197,6 @@ Got to index x/y
 What this is telling you is that the code has not been able to find matches for
 the particles with the highest IDs (those that have been bit-shifted). These
 particles are then not considered further in the analysis based on Lagrangian
-Regions.
+Regions. 
+
+You should ensure that these particles are ignored from any further analysis.
