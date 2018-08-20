@@ -238,7 +238,7 @@ def write_data_to_file(filename, simulation: Simulation):
             if truncate_ids is None:
                 truncate_ids = -1
 
-            snap_group.attrs.create("truncate_ids", int(truncate_ids))
+            snap_group.attrs.create("truncate_ids", truncate_ids)
 
         # Now only for the end snapshot
 
