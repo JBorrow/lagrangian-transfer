@@ -42,13 +42,13 @@ An analysis scripy, `analyse.py`, is provided for quick analysis of the data.
 It can be invoked as follows:
 
 ```bash
-python3 <name of snapshot file (ic)> <name of snapshot file (z=0) <name of caesar file>
+python3 analyse.py <name of snapshot file (ic)> <name of snapshot file (z=0) <name of caesar file>
 ```
 
 So for example,
 
 ```bash
-python3 snap_0000.hdf5 snap_0151.hdf5 caesar_snap_0151.hdf5
+python3 analyse.py snap_0000.hdf5 snap_0151.hdf5 caesar_snap_0151.hdf5
 ```
 
 after having ran `caesar snap_0151.hdf5`. We hope to improve this interface in the
@@ -167,3 +167,34 @@ are welcome to use structured arrays).
 + `FakeHalo.slist`, same as dmlist but for stars
 + `FakeHalo.nstar`, same as ndm but for stars
 + `FakeHalo.GroupID`, the group which this halo belongs to (i.e. its halo id)
+
+
+Troubleshooting
+---------------
+
+This analysis, whilst on the surface simple, actually requires some realtively
+complex procedures to be ran in a reasonable computational time. It also has to
+deal with some bugs in original simulation codes.
+
+If your code does not correctly update the `ParticleID` of a progenitor gas
+particle when it forms a star, then you will need to use the `notrunc` option
+in the `analyse.py` script. This can be activated as follows:
+
+```bash
+python3 analyse.py <name of snapshot file (ic)> <name of snapshot file (z=0) <name of caesar file> notrunc
+```
+
+This will ignore all gas particles that have had their higher bits changed. 
+You should then, naturally, expect the following error message from the code:
+
+```
+Not parsed all gas particles. Results might be wrong.
+Got to index x/y
+Not parsed all star particles. Results might be wrong.
+Got to index x/y
+```
+
+What this is telling you is that the code has not been able to find matches for
+the particles with the highest IDs (those that have been bit-shifted). These
+particles are then not considered further in the analysis based on Lagrangian
+Regions.
