@@ -359,27 +359,45 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
     ]
 
     if particle_type == "gas":
-        truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
-
-        final_radii, final_neighbour_indicies = single_processing_loop(
-            sim.snapshot_end.baryonic_matter.gas_ids % truncate,
-            sim.snapshot_end.baryonic_matter.gas_coordinates,
-            particle_ini_ids,
-            particle_end_neighbour_coordinates,
-            particle_ini_neighbour_indicies,
-            boxsize,
-        )
+        if sim.snapshot_end.baryonic_matter.truncate_ids is not None:
+            truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
+            final_radii, final_neighbour_indicies = single_processing_loop(
+                sim.snapshot_end.baryonic_matter.gas_ids % truncate,
+                sim.snapshot_end.baryonic_matter.gas_coordinates,
+                particle_ini_ids,
+                particle_end_neighbour_coordinates,
+                particle_ini_neighbour_indicies,
+                boxsize,
+            )
+        else:
+            final_radii, final_neighbour_indicies = single_processing_loop(
+                sim.snapshot_end.baryonic_matter.gas_ids,
+                sim.snapshot_end.baryonic_matter.gas_coordinates,
+                particle_ini_ids,
+                particle_end_neighbour_coordinates,
+                particle_ini_neighbour_indicies,
+                boxsize,
+            )
     elif particle_type == "stars":
-        truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
-
-        final_radii, final_neighbour_indicies = single_processing_loop(
-            sim.snapshot_end.baryonic_matter.star_ids % truncate,
-            sim.snapshot_end.baryonic_matter.star_coordinates,
-            particle_ini_ids,
-            particle_end_neighbour_coordinates,
-            particle_ini_neighbour_indicies,
-            boxsize,
-        )
+        if sim.snapshot_end.baryonic_matter.truncate_ids is not None:
+            truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
+            final_radii, final_neighbour_indicies = single_processing_loop(
+                sim.snapshot_end.baryonic_matter.star_ids % truncate,
+                sim.snapshot_end.baryonic_matter.star_coordinates,
+                particle_ini_ids,
+                particle_end_neighbour_coordinates,
+                particle_ini_neighbour_indicies,
+                boxsize,
+            )
+        else:
+            final_radii, final_neighbour_indicies = single_processing_loop(
+                sim.snapshot_end.baryonic_matter.star_ids,
+                sim.snapshot_end.baryonic_matter.star_coordinates,
+                particle_ini_ids,
+                particle_end_neighbour_coordinates,
+                particle_ini_neighbour_indicies,
+                boxsize,
+            )
     if particle_type == "dark_matter":
         final_radii, final_neighbour_indicies = single_processing_loop(
             sim.snapshot_end.dark_matter.ids,
