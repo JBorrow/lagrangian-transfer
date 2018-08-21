@@ -425,7 +425,13 @@ class Snapshot(object):
     halo catalogue. Pass two of these to Simulation to run the analysis.
     """
 
-    def __init__(self, snapshot_filename, catalogue_filename=None, truncate_ids=None):
+    def __init__(
+        self,
+        snapshot_filename,
+        catalogue_filename=None,
+        truncate_ids=None,
+        load_using_yt=False,
+    ):
         """
         Opens the data and stuffs the information into the appropriate
         objects.
@@ -436,15 +442,17 @@ class Snapshot(object):
         truncate_ids should be an integer above which the ParticleIDs are all
         truncated. This is helpful as in some simulation codes (e.g. Mufasa)
         star-forming particles have their higher-up bits played with.
+
+        If load_using_yt is truthy, the data will be loaded via yt, rather
+        than directly through H5py. Only use this if absolutely necessary,
+        as it can be quite slow.
         """
 
         self.snapshot_filename = snapshot_filename
         self.catalogue_filename = catalogue_filename
         self.truncate_ids = truncate_ids
 
-        particle_data = h5py.File(snapshot_filename, "r")
-
-        self.header = dict(particle_data["Header"].attrs)
+        # First, load the catalogue information
 
         if catalogue_filename is not None:
             if isinstance(catalogue_filename, FakeCaesar):
@@ -454,6 +462,28 @@ class Snapshot(object):
         else:
             self.halo_catalogue = None
 
+        # If yt is chosen, we load it on the fly as it should not really
+        # be a dependency of the whole project
+
+        if load_using_yt:
+            import yt
+
+            yt_data = yt.load(snapshot_filename)
+
+            particle_data = self.read_data_from_yt(yt_data)
+
+            # We need to manually re-extract the information from yt; it does
+            # not give us access to the full header dictionary
+            self.header = {"BoxSize": yt_data.domain_right_edge}
+
+            # Goodbye, my lover
+            del yt_data
+        else:
+            particle_data = h5py.File(snapshot_filename, "r")
+            self.header = dict(particle_data["Header"].attrs)
+
+        # The rest of this should be the same now that we have massaged the
+        # yt data into fitting with the Gadget snapshot
         self.dark_matter = DMParticles(particle_data["PartType1"], self.halo_catalogue)
 
         try:
@@ -474,6 +504,40 @@ class Snapshot(object):
             )
 
         return
+
+    def read_data_from_yt(self, yt_data):
+        """
+        Reads the data from a yt object, yt_data, and then uses that to re-create 
+        the simple HDF5 API. Returns a dictionary of pointers to numpy arrays.
+        """
+
+        from yt.utilities.exceptions import YTFieldNotFound
+
+        raw_data = yt_data.all_data()
+
+        particle_data = {}
+
+        for particle_type in [0, 1, 4, 5]:
+            particle_type_name = "PartType{}".format(particle_type)
+            for data_object in ["ParticleIDs", "Coordinates", "Masses", "BH_Mass"]:
+                try:
+                    # We must explicitly cast to numpy as the conversion pipece-by-piece is
+                    # unfortunately _very_ slow (5x slower than numpy) with ytarray.
+                    this_data = np.array(raw_data[(particle_type_name, data_object)])
+                except YTFieldNotFound:
+                    # Our friend doesn't exist. Let's just leave it
+                    continue
+
+                # Now we need to "write" to our dictionary
+                try:
+                    particle_data[particle_type_name]
+                except KeyError:
+                    # Need to on-the-fly create the nested dictionary
+                    particle_data[particle_type_name] = {}
+
+                particle_data[particle_type_name][data_object] = this_data
+
+        return particle_data
 
     def close_file_handles(self):
         """

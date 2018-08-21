@@ -26,9 +26,17 @@ try:
 except IndexError:
     no_trunc = False
 
+try:
+    use_yt = str(sys.argv[5]) == "useyt"
+except IndexError:
+    use_yt = False
+
+if use_yt:
+    print("Using yt to load particle data")
+
 # Load the data using our library
 
-simulation_ini = lt.Snapshot(snapshot_filename_ini)
+simulation_ini = lt.Snapshot(snapshot_filename_ini, load_using_yt=use_yt)
 # Get the max initial gas ID to truncate by
 if no_trunc:
     truncate_id = None
@@ -37,7 +45,10 @@ else:
     truncate_id = simulation_ini.baryonic_matter.gas_ids.max()
 
 simulation_end = lt.Snapshot(
-    snapshot_filename_end, caesar_filename, truncate_ids=truncate_id
+    snapshot_filename_end,
+    caesar_filename,
+    truncate_ids=truncate_id,
+    load_using_yt=use_yt,
 )
 
 print("Running the simulation class")
