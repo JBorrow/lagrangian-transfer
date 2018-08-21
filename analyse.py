@@ -133,7 +133,7 @@ if __name__ == "__main__":
         # a FakeCaesar object.
         import pickle
 
-        caesar_filename = pickle.load(open(fake_caesar_filename, "rb"))
+        caesar_filename = pickle.load(open(caesar_filename, "rb"))
 
         # We need to make sure that the halos are contiguous.
         # We'll also make sure that the "maximum" halo id gets converted to -1
