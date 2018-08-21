@@ -42,17 +42,20 @@ An analysis scripy, `analyse.py`, is provided for quick analysis of the data.
 It can be invoked as follows:
 
 ```bash
-python3 analyse.py <name of snapshot file (ic)> <name of snapshot file (z=0) <name of caesar file>
+python3 analyse.py -i <name of snapshot file (ic)> \
+                   -f <name of snapshot file (z=0) \
+		   -c <name of caesar file>
 ```
 
 So for example,
 
 ```bash
-python3 analyse.py snap_0000.hdf5 snap_0151.hdf5 caesar_snap_0151.hdf5
+python3 analyse.py -i snap_0000.hdf5 \
+                   -f snap_0151.hdf5 \
+		   -c caesar_snap_0151.hdf5
 ```
 
-after having ran `caesar snap_0151.hdf5`. We hope to improve this interface in the
-future should this project continue.
+after having ran `caesar snap_0151.hdf5`.
 
 
 API
@@ -168,6 +171,9 @@ are welcome to use structured arrays).
 + `FakeHalo.nstar`, same as ndm but for stars
 + `FakeHalo.GroupID`, the group which this halo belongs to (i.e. its halo id)
 
+To re-run the full analysis with this pickled object, all that is required is to
+provide a truthy value to the `-o` flag in `analyse.py`.
+
 
 Difficult Snapshots
 -------------------
@@ -177,7 +183,8 @@ over `h5py` that is implemeted in `ltcaesar`. However, if you are having problem
 (for example if you have multiple files dumped per snapshot), you will need to use
 the `yt` wrapper that is provided. You can do this by passing a truthy `load_using_yt`
 value to the `Snapshot` class. There is documentation available in the scripts
-used for running the full analysis on how to use this feature also.
+used for running the full analysis on how to use this feature also (a truthy
+value passed to `-y` should do the trick). 
 
 
 Troubleshooting
@@ -192,7 +199,10 @@ particle when it forms a star, then you will need to use the `notrunc` option
 in the `analyse.py` script. This can be activated as follows:
 
 ```bash
-python3 analyse.py <name of snapshot file (ic)> <name of snapshot file (z=0) <name of caesar file> notrunc
+python3 analyse.py -i <name of snapshot file (ic)> \
+                   -f <name of snapshot file (z=0) \
+		   -c <name of caesar file> \
+		   -t 1
 ```
 
 This will ignore all gas particles that have had their higher bits changed. 
