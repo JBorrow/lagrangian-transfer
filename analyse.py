@@ -131,6 +131,8 @@ if __name__ == "__main__":
     if other_halo_finder:
         # Bad choice of variable name, sorry -- for consistency! This is
         # a FakeCaesar object.
+        import pickle
+
         caesar_filename = pickle.load(open(fake_caesar_filename, "rb"))
 
         # We need to make sure that the halos are contiguous.
