@@ -169,6 +169,17 @@ are welcome to use structured arrays).
 + `FakeHalo.GroupID`, the group which this halo belongs to (i.e. its halo id)
 
 
+Difficult Snapshots
+-------------------
+
+The majority of Gadget-oid snapshots should be read just fine with the thin layer
+over `h5py` that is implemeted in `ltcaesar`. However, if you are having problems
+(for example if you have multiple files dumped per snapshot), you will need to use
+the `yt` wrapper that is provided. You can do this by passing a truthy `load_using_yt`
+value to the `Snapshot` class. There is documentation available in the scripts
+used for running the full analysis on how to use this feature also.
+
+
 Troubleshooting
 ---------------
 
