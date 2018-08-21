@@ -39,7 +39,7 @@ PARSER.add_argument(
     help="""
     Initial conditions file for your simulation. Usually a HDF5 file.
     """,
-    required=True
+    required=True,
 )
 
 PARSER.add_argument(
@@ -48,7 +48,7 @@ PARSER.add_argument(
     help="""
     Final conditions file for your simulation, usually the z=0 snapshot.
     """,
-    required=True
+    required=True,
 )
 
 PARSER.add_argument(
@@ -58,7 +58,7 @@ PARSER.add_argument(
     Halo catalogue filename. If this is from caesar, you are done;
     otherwise please see the documentation for -o/--otherhalofinder.
     """,
-    required=True
+    required=True,
 )
 
 PARSER.add_argument(
@@ -73,7 +73,7 @@ PARSER.add_argument(
     taken modulo the largest ID in the initial conditions.
     """,
     required=False,
-    default=False
+    default=False,
 )
 
 PARSER.add_argument(
@@ -86,7 +86,7 @@ PARSER.add_argument(
     multiple HDF5 files, as this is not handled by LTCaesar gracefully.
     """,
     required=False,
-    default=False
+    default=False,
 )
 
 PARSER.add_argument(
@@ -99,7 +99,7 @@ PARSER.add_argument(
     FakeCaesar catalogue.
     """,
     required=False,
-    default=False
+    default=False,
 )
 
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     caesar_filename = str(ARGS["catalogue"])
     no_trunc = bool(ARGS["notrunc"])
     use_yt = bool(int(ARGS["yt"]))
-    other_halo_finder = bool(int(ARGS["otherhalofinder"))
+    other_halo_finder = bool(int(ARGS["otherhalofinder"]))
 
     # Print a summary of code options chosen.
 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         "\t Caesar filename: {}\n".format(caesar_filename),
         "\t No truncation: {}\n".format(no_trunc),
         "\t Use yt to load data: {}\n".format(use_yt),
-        "\t Use another halo finder: {}".format(other_halo_finder)
+        "\t Use another halo finder: {}".format(other_halo_finder),
     )
 
     # Change out the caesar filename for the FakeCaesar catalogue data
