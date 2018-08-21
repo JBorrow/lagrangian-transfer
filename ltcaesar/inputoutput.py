@@ -88,6 +88,7 @@ class FakeSimulation(object):
             catalogue_filename = (
                 self.handle[snap].attrs["catalogue_filename"].decode("utf-8")
             )
+            load_using_yt = self.handle[snap].attrs["load_using_yt"]
 
             # Because we do the np.string_ conversion when writing.
             if catalogue_filename == "None":
@@ -98,7 +99,9 @@ class FakeSimulation(object):
                 catalogue_filename = None
                 read_reduced_data_fake_caesar = True
 
-            snapshot = Snapshot(snapshot_filename, catalogue_filename, truncate_ids)
+            snapshot = Snapshot(
+                snapshot_filename, catalogue_filename, truncate_ids, load_using_yt
+            )
 
             if read_reduced_data_fake_caesar:
                 # Read the reduced data and slot it into the snapshot.
@@ -192,6 +195,7 @@ def write_data_to_file(filename, simulation: Simulation):
             snap_group.attrs.create(
                 "snapshot_filename", np.string_(this_snapshot.snapshot_filename)
             )
+            snap_group.attrs.create("load_using_yt", this_snapshot.load_using_yt)
 
             if not isinstance(this_snapshot.catalogue_filename, FakeCaesar):
                 snap_group.attrs.create(

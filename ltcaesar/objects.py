@@ -451,6 +451,7 @@ class Snapshot(object):
         self.snapshot_filename = snapshot_filename
         self.catalogue_filename = catalogue_filename
         self.truncate_ids = truncate_ids
+        self.load_using_yt = load_using_yt
 
         # First, load the catalogue information
 
