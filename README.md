@@ -15,9 +15,7 @@ Requirements
 + `caesar` - you will also need to generate the relevant halo catalogues for
   each snapshot that you would like to include in the analysis. The version of
   `caesar` that we recommend is the custom version available here:
-  https://bitbucket.org/laskalam/caesar. You will need to run `2to3` on this,
-  and then edit out references in the `setup.py` to the `hg` version. This is a
-  bit of a pain at the moment, sorry.
+  https://bitbucket.org/laskalam/caesar.
 + `h5py` for reading snapshots.
 + `numpy` for numerical routines.
 + `scipy` for the KDTree routines.
