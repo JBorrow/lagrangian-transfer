@@ -91,7 +91,7 @@ PARSER.add_argument(
 
 PARSER.add_argument(
     "-o",
-    "-otherhalofinder",
+    "--otherhalofinder",
     help="""
     Use another halo finder; i.e. using a FakeCaesar catalogue generated
     through the use of the scripts available in the repository. In that
