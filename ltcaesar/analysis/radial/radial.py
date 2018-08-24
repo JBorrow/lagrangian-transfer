@@ -256,7 +256,7 @@ def run_analysis_on_mass_bin(
     Simulation is the simulation data object, lower is the lower mass bin (in
     solar masses), upper is the upper mass bin (in solar masses), and
     radial_bins is the set of radial bins between 0 and 1 (these are normalized
-    and stacked with the virial radius).
+    and stacked with the virial radius). Also returns the standard deviation
 
     This is a _very_ slow for loop over all halos.
     """
@@ -264,7 +264,7 @@ def run_analysis_on_mass_bin(
     halo_mask = find_halos_in_bin(lower, upper, simulation, conversion=conversion)
     halos = np.arange(len(halo_mask))[halo_mask]
 
-    full_output = np.zeros([3, len(radial_bins)])
+    profiles = []
     normalization_factor = np.zeros([3, len(radial_bins)])
 
     for halo in tqdm(halos):
@@ -276,12 +276,17 @@ def run_analysis_on_mass_bin(
             if np.sum(individual_analyis) == 0.0:
                 raise ValueError
             else:
-                full_output += individual_analyis
+                profiles.append(individual_analyis)
                 # This factor is required in case we don't find any particles in a given bin
                 # In that case we don't want that bin to contribute to the normalization
                 normalization_factor += individual_analysis_used
         except ValueError:
             # This halo has no gas in it, R.I.P. Skip it.
             continue
+ 
+    full_output = np.sum(profiles, axis=0) / normalization_factor
+    # Get standard errors by assuming gaussianity
+    standard_deviation = np.std(profiles, axis=0) / np.sqrt(normalization_factor)
 
-    return full_output / normalization_factor
+    return full_output, standard_deviation
+
