@@ -7,7 +7,7 @@ corresponding analysis functions that do the heavy lifting and return the raw
 data should you wish to analyse it yourself.
 """
 
-from .objects import Simulation
+from ltcaesar.objects import Simulation
 
 import numpy as np
 import matplotlib.pyplot as plt
