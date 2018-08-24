@@ -63,7 +63,7 @@ def get_masks(halo, simulation: Simulation) -> Tuple[np.ndarray]:
             getattr(simulation.snapshot_end.baryonic_matter, f"{ptype}_halos") == halo
         )
 
-    dark_matter_mask = sim.snapshot_end.dark_matter.halos == halo
+    dark_matter_mask = simulation.snapshot_end.dark_matter.halos == halo
 
     return baryonic_masks["gas_mask"], baryonic_masks["star_mask"], dark_matter_mask
 
