@@ -20,8 +20,7 @@ except ImportError:
 
 from typing import Tuple
 
-from ltceasar.objects import Snapshot
-from halos import FakeCaesar, FakeHalo
+from .halos import FakeCaesar, FakeHalo
 
 
 def parse_halos_and_coordinates(
@@ -110,7 +109,7 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
 
 def find_particles_in_halo(
     coordinates: np.ndarray, center: np.array, radius: float
-) -> np.array[bool]:
+):
     """
     Finds all particles (returns a boolean mask) that live in the sphere defined
     by center, radius.
@@ -169,7 +168,7 @@ def change_virial_radius(
     return new_halos
 
 
-def create_new_halo_catalogue(snapshot: Snapshot, factor: float) -> FakeCaesar:
+def create_new_halo_catalogue(snapshot, factor: float) -> FakeCaesar:
     """
     Takes a snapshot object, and uses the information in it to re-create a
     halo catalogue with the virial radius increased by "factor".

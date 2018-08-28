@@ -4,6 +4,10 @@ Makes a bunch of different plots based on distance metrics.
 This is converted from a python notebook is is quite messy.
 """
 
+import matplotlib
+
+matplotlib.use("Agg")
+
 import ltcaesar as lt
 
 import matplotlib.pyplot as plt
@@ -29,7 +33,9 @@ import h5py
 truncate = sim.snapshot_end.baryonic_matter.truncate_ids + 1
 
 
-with h5py.File("../test_data/snap_m25n256_151.hdf5", "r") as file:
+with h5py.File(
+    "/mnt/ceph/users/dangles/simba/m50n512_s27/snapshot_077.hdf5", "r"
+) as file:
     gas_ids = file["PartType0/ParticleIDs"][...]
     gas_launches = file["PartType0/NWindLaunches"][...]
 
@@ -51,6 +57,7 @@ plt.xlim(0, 28)
 plt.xlabel("Number of launches")
 
 plt.savefig("n_gas_launches_agn_vs_sf.pdf")
+plt.clf()
 
 mask_agn = agn_launches != 0
 mask_sf = sf_launches != 0
@@ -61,7 +68,7 @@ plt.hist(
     label="All",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -70,7 +77,7 @@ plt.hist(
     label="Stellar",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -79,16 +86,18 @@ plt.hist(
     label="AGN",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 plt.semilogy()
 plt.legend(frameon=False)
 plt.xlabel("Distance to original neighbour")
 
 plt.savefig("distance_to_neighbour_based_on_how_launched.pdf")
+
+plt.clf()
 
 
 # So we can conclude that particles kicked by AGN are found the furthest out, with those kicked by stellar feedback a little less further out, followed by the background being much lower. We see this as about an order of magnitude in this tail.
@@ -128,7 +137,7 @@ plt.hist(
     label="Dark Matter",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -137,7 +146,7 @@ plt.hist(
     label="Same LR",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -146,7 +155,7 @@ plt.hist(
     label="Different LR",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -155,7 +164,7 @@ plt.hist(
     label="Always Outside",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -164,16 +173,17 @@ plt.hist(
     label="From Outside",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 plt.semilogy()
 plt.legend(frameon=False)
 plt.xlabel("Distance to original neighbour")
 
 plt.savefig("distance_to_original_neighbour_based_on_in_lr_or_not_gas.pdf")
+plt.clf()
 
 
 # There's a lot going on in this plot. We see that gas that ends up in the same LR as its Halo (i.e. it stays where it should) follows a very nice distribution that actually is significantly more tightly bound than the dark matter. This is quite unexpected.
@@ -217,7 +227,7 @@ plt.hist(
     label="Dark Matter (in halos)",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -226,7 +236,7 @@ plt.hist(
     label="Same LR",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -235,7 +245,7 @@ plt.hist(
     label="Different LR",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -244,7 +254,7 @@ plt.hist(
     label="Always Outside",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -253,16 +263,17 @@ plt.hist(
     label="From Outside",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 plt.semilogy()
 plt.legend(frameon=False)
 plt.xlabel("Distance to original neighbour")
 
 plt.savefig("distance_to_original_neighbour_based_on_in_lr_or_not_stars.pdf")
+plt.clf()
 
 # Yes! This is perfect. This is the gas that traces a bunch more properties as it has formed stars - it is much less likely to have been processed and ejected. We see that gas that comes in from outside and forms stars, as well as gas from other LRs is the one that does the long-distance transfer.
 
@@ -286,7 +297,7 @@ plt.hist(
     label="No Feedback",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -295,7 +306,7 @@ plt.hist(
     label="Stellar",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
@@ -304,16 +315,17 @@ plt.hist(
     label="AGN",
     bins=100,
     alpha=0.5,
-    range=(0, 25000),
+    range=(0, 50000),
     density=True,
     histtype="step",
 )
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 plt.semilogy()
 plt.legend(frameon=False)
 plt.xlabel("Distance to original neighbour")
 
 plt.savefig("distance_to_neighbour_based_on_how_launched_only_in_halos.pdf")
+plt.clf()
 
 # We want to look on a particle-by-particle basis at the individual neighbours of dark matter particles at z=0. Thankfully, these should be pretty well organised -- we should be searching through the KDTree at the same time (i.e. we should have a list of particle indicies for the DM and Gas that are the same).
 #
@@ -361,6 +373,7 @@ plt.xlim(0, 2000)
 plt.legend(frameon=False)
 
 plt.savefig("ratio_of_distances_compared_to_dark_matter.pdf")
+plt.clf()
 
 # Now we'll take a look at the distribution of distances plot binned by halo mass.
 
@@ -400,7 +413,7 @@ for bin_edge in bin_edges:
     plt.hist(
         radii,
         bins=100,
-        range=(0, 25000),
+        range=(0, 50000),
         histtype="step",
         density=True,
         label=f"${format_number(bin_edge[0])}$-${format_number(bin_edge[1])}$ $M_\odot$",
@@ -408,9 +421,10 @@ for bin_edge in bin_edges:
 
 plt.semilogy()
 plt.legend(frameon=False)
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 
 plt.savefig("gas_distance_metric_binned_by_halo_mass_only_in_halo.pdf")
+plt.clf()
 
 
 def get_star_mask_halo_mass_bin(bin_edge):
@@ -432,7 +446,7 @@ for bin_edge in bin_edges:
     plt.hist(
         radii,
         bins=100,
-        range=(0, 25000),
+        range=(0, 50000),
         histtype="step",
         density=True,
         label=f"${format_number(bin_edge[0])}$-${format_number(bin_edge[1])}$ $M_\odot$",
@@ -440,9 +454,10 @@ for bin_edge in bin_edges:
 
 plt.semilogy()
 plt.legend(frameon=False)
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 
 plt.savefig("star_distance_metric_binned_by_halo_mass_only_in_halo.pdf")
+plt.clf()
 
 
 def get_dm_mask_halo_mass_bin(bin_edge):
@@ -464,7 +479,7 @@ for bin_edge in bin_edges:
     plt.hist(
         radii,
         bins=100,
-        range=(0, 25000),
+        range=(0, 50000),
         histtype="step",
         density=True,
         label=f"${format_number(bin_edge[0])}$-${format_number(bin_edge[1])}$ $M_\odot$",
@@ -472,6 +487,7 @@ for bin_edge in bin_edges:
 
 plt.semilogy()
 plt.legend(frameon=False)
-plt.xlim(0, 25000)
+plt.xlim(0, 50000)
 
 plt.savefig("dm_distance_metric_binned_by_halo_mass_only_in_halo.pdf")
+plt.clf()
