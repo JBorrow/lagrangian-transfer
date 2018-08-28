@@ -13,7 +13,10 @@ import numpy as np
 from tqdm import tqdm
 from typing import Tuple
 
-def parse_halos_and_coordinates(halos: np.array, coordinates: np.ndarray) -> Tuple[np.ndarray]:
+
+def parse_halos_and_coordinates(
+    halos: np.array, coordinates: np.ndarray
+) -> Tuple[np.ndarray]:
     """
     Parses all of the halos.
 
@@ -84,10 +87,10 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
         max_values = halo_coordinates.max(axis=0)
         min_values = halo_coordinates.min(axis=0)
         center = 0.5 * (max_values + min_values)
-        
+
         # This could be vectorised but would be much less memory efficient
-        max_radius = np.sqrt(np.sum((max_values - center)**2))
-        min_radius = np.sqrt(np.sum((min_values - center)**2))
+        max_radius = np.sqrt(np.sum((max_values - center) ** 2))
+        min_radius = np.sqrt(np.sum((min_values - center) ** 2))
 
         centers[index] = center
         radii[index] = max([max_radius, min_radius])
@@ -104,17 +107,14 @@ def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: fl
     # First, we will chop out the cube that is defined by the center and radius.
     cube_mask = np.logical_and(
         coordinates <= (center + radius), coordinates >= (center - radius)
-    ).all(axis=1) # (this generates 3xn array)
+    ).all(axis=1)  # (this generates 3xn array)
 
     coordinates_in_cube = coordinates[cube_mask]
 
     # Now we can do the "brute force" search to chop out the sphere
     vectors_from_center = coordinates_in_cube - center
     radius_from_center = np.sqrt(
-        np.sum(
-            vectors_from_center * vectors_from_center,
-            axis=1
-        )
+        np.sum(vectors_from_center * vectors_from_center, axis=1)
     )
 
     radius_mask = radius_from_center <= radius
@@ -123,4 +123,3 @@ def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: fl
     cube_mask[cube_mask] = radius_mask
 
     return cube_mask
-
