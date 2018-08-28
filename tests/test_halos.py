@@ -4,7 +4,8 @@ Tests the functions in the halos submodule.
 
 from ltcaesar.halos import \
     parse_halos_and_coordinates, \
-    find_all_halo_centers
+    find_all_halo_centers, \
+    find_particles_in_halo 
 
 import numpy as np
 
@@ -54,4 +55,29 @@ def test_find_all_halo_centers():
 
     assert (expected_centers == centers).all()
     assert (expected_radii == radii).all()
+
+
+def test_find_particles_in_halo():
+    """
+    This test is performed in 2D.
+    """
+
+    x_coordinates = np.linspace(0, 100, 100)
+    y_coordinates = np.linspace(0, 100, 100)
+    z_coordinates = np.zeros(100)
+
+    coordinates = np.array([x_coordinates, y_coordinates, z_coordinates]).T
+    center = np.array([50.0, 50.0, 0.0])
+    radius = 10.0
+
+    mask = find_particles_in_halo(coordinates, center, radius)
+    
+    # Generate expected answers
+
+    dx = coordinates - center
+    expected_radii = np.array([sum(x*x)**(0.5) for x in dx])
+    expected_mask = expected_radii <= radius
+
+    assert (expected_mask == mask).all()
+
 

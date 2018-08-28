@@ -63,6 +63,13 @@ def parse_halos_and_coordinates(halos: np.array, coordinates: np.ndarray) -> Tup
 def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
     """
     This function finds all halo centers as well as radii.
+
+    It does this by looking for the most extreme values (lowest and highest
+    in cartesian coordinates), and then assinging the center of these as the
+    center of the halo. Note that these coordinates need not belong to the same
+    particle; we can take the x-coordinate from one, the y-coordinate from
+    another. The radius of the halo is then determined as the maximal distance
+    from the center to one of these extreme points.
     """
 
     output, output_indicies = parse_halos_and_coordinates(halos, coordinates)
@@ -94,7 +101,26 @@ def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: fl
     by center, radius.
     """
 
-    raise NotImplementedError
+    # First, we will chop out the cube that is defined by the center and radius.
+    cube_mask = np.logical_and(
+        coordinates <= (center + radius), coordinates >= (center - radius)
+    ).all(axis=1) # (this generates 3xn array)
 
-    return mask
+    coordinates_in_cube = coordinates[cube_mask]
+
+    # Now we can do the "brute force" search to chop out the sphere
+    vectors_from_center = coordinates_in_cube - center
+    radius_from_center = np.sqrt(
+        np.sum(
+            vectors_from_center * vectors_from_center,
+            axis=1
+        )
+    )
+
+    radius_mask = radius_from_center <= radius
+
+    # Now we need to kill the areas in the cube mask that have been selected out
+    cube_mask[cube_mask] = radius_mask
+
+    return cube_mask
 
