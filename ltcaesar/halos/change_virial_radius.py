@@ -10,8 +10,18 @@ stuff re-assigned first so that smaller halos can "steal" from them.
 
 import numpy as np
 
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+
+    def tqdm(x, *args, **kwargs):
+        return x
+
+
 from typing import Tuple
+
+from ltceasar.objects import Snapshot
+from halos import FakeCaesar, FakeHalo
 
 
 def parse_halos_and_coordinates(
@@ -98,7 +108,9 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
     return centers, radii
 
 
-def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: float):
+def find_particles_in_halo(
+    coordinates: np.ndarray, center: np.array, radius: float
+) -> np.array[bool]:
     """
     Finds all particles (returns a boolean mask) that live in the sphere defined
     by center, radius.
@@ -123,3 +135,88 @@ def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: fl
     cube_mask[cube_mask] = radius_mask
 
     return cube_mask
+
+
+def change_virial_radius(
+    halos: np.array,
+    coordinates: np.ndarray,
+    centers: np.ndarray,
+    radii: np.array,
+    factor: float,
+) -> np.array:
+    """
+    Change the virial radius of the coordinates and halos such that they have 
+    been increased to r_vir -> factor * r_vir.
+
+    Returns a new "halos" array that corresponds to the same ordering as the
+    original coordinates.
+    
+    Assumes that the halos scale with mass; i.e. halo 0 is the most massive,
+    with halo -1 the least massive. The re-radii-ing is done top-down (i.e.
+    with the most massive halos _first_) so that smaller halos can 'steal'
+    particles back from their larger neighbours.
+    """
+
+    new_halos = np.empty_like(halos)
+
+    for halo, (center, radius) in enumerate(
+        zip(centers, tqdm(radii, desc="Searching for particles in halos"))
+    ):
+        mask = find_particles_in_halo(coordinates, center, radius * factor)
+
+        new_halos[mask] = halo
+
+    return new_halos
+
+
+def create_new_halo_catalogue(snapshot: Snapshot, factor: float) -> FakeCaesar:
+    """
+    Takes a snapshot object, and uses the information in it to re-create a
+    halo catalogue with the virial radius increased by "factor".
+    """
+
+    # First, we'll find the centers and radii of all of the halos based on their
+    # Dark matter component.
+
+    centers, radii = find_all_halo_centers(
+        snapshot.dark_matter.halos, snpashot.dark_matter.coordinates
+    )
+
+    # Now we have to grab masks for each component individually and add them to a
+    # halo list once processed
+
+    halos = []
+
+    for halo, (center, radius) in enumerate(
+        zip(centers, tqdm(radii, desc="Searching for particles in halos"))
+    ):
+        dm_mask = find_particles_in_halo(
+            snapshot.dark_matter.coordinates, center, radius * factor
+        )
+        gas_mask = find_particles_in_halo(
+            snapshot.baryonic_matter.gas_coordinates, center, radius * factor
+        )
+        star_mask = find_particles_in_halo(
+            snapshot.baryonic_matter.star_coordinates, center, radius * factor
+        )
+
+        # Now we need to populate a FakeHalo object with this information
+
+        halos.append(
+            FakeHalo(
+                dmlist=np.where(dm_mask),
+                ndm=dm_mask.sum(),
+                glist=np.where(gas_mask),
+                ngas=gas_mask.sum(),
+                slist=np.where(star_mask),
+                nstar=star_mask.sum(),
+                GroupID=halo,
+            )
+        )
+
+    # We can now convert to a FakeCaesar object
+
+    halo_catalogue = FakeCaesar(halos=halos, nhalos=len(halos))
+    halo_catalogue.check_valid()
+
+    return halo_catalogue
