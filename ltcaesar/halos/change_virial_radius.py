@@ -11,9 +11,9 @@ stuff re-assigned first so that smaller halos can "steal" from them.
 import numpy as np
 
 from tqdm import tqdm
+from typing import Tuple
 
-
-def parse_halos_and_coordinates(halos: np.array, coordinates: np.ndarray):
+def parse_halos_and_coordinates(halos: np.array, coordinates: np.ndarray) -> Tuple[np.ndarray]:
     """
     Parses all of the halos.
 
@@ -65,7 +65,25 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
     This function finds all halo centers as well as radii.
     """
 
-    raise NotImplementedError
+    output, output_indicies = parse_halos_and_coordinates(halos, coordinates)
+
+    coordinates_dtype = coordinates.dtype
+
+    centers = np.empty((len(output), 3), dtype=coordinates_dtype)
+    radii = np.empty(len(output), dtype=coordinates_dtype)
+
+    for index, halo_coordinates in enumerate(output):
+        # Grab extreme values in all dimensions
+        max_values = halo_coordinates.max(axis=0)
+        min_values = halo_coordinates.min(axis=0)
+        center = 0.5 * (max_values + min_values)
+        
+        # This could be vectorised but would be much less memory efficient
+        max_radius = np.sqrt(np.sum((max_values - center)**2))
+        min_radius = np.sqrt(np.sum((min_values - center)**2))
+
+        centers[index] = center
+        radii[index] = max([max_radius, min_radius])
 
     return centers, radii
 
