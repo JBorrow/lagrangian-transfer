@@ -107,9 +107,7 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
     return centers, radii
 
 
-def find_particles_in_halo(
-    coordinates: np.ndarray, center: np.array, radius: float
-):
+def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: float):
     """
     Finds all particles (returns a boolean mask) that live in the sphere defined
     by center, radius.
@@ -118,7 +116,9 @@ def find_particles_in_halo(
     # First, we will chop out the cube that is defined by the center and radius.
     cube_mask = np.logical_and(
         coordinates <= (center + radius), coordinates >= (center - radius)
-    ).all(axis=1)  # (this generates 3xn array)
+    ).all(
+        axis=1
+    )  # (this generates 3xn array)
 
     coordinates_in_cube = coordinates[cube_mask]
 
@@ -168,6 +168,80 @@ def change_virial_radius(
     return new_halos
 
 
+def single_run(data):
+    """
+    Does a single data run. Data is
+    [0] = center
+    [1] = radius * factor
+    [2] = halo number
+
+    dm, gas, star are the arrays of those coordinates
+   
+    See create_new_halo_catalogue
+    """
+
+    center = data[0]
+    radius = data[1]
+    halo = data[2]
+
+    # We need to reshape the stuff to numpy arrays on demand
+    dm_shape = (len(dm_coords) // 3, 3)
+    gas_shape = (len(gas_coords) // 3, 3)
+    star_shape = (len(star_coords) // 3, 3)
+
+    dm_mask = find_particles_in_halo(
+        np.frombuffer(dm_coords).reshape(dm_shape), center, radius
+    )
+    dmlist = np.where(dm_mask)
+    ndm = dm_mask.sum()
+
+    del dm_mask
+
+    gas_mask = find_particles_in_halo(
+        np.frombuffer(gas_coords).reshape(gas_shape), center, radius
+    )
+    glist = np.where(gas_mask)
+    ngas = gas_mask.sum()
+
+    del gas_mask
+
+    star_mask = find_particles_in_halo(
+        np.frombuffer(star_coords).reshape(star_shape), center, radius
+    )
+    slist = np.where(star_mask)
+    nstar = star_mask.sum()
+
+    del star_mask
+
+    # Now we need to populate a FakeHalo object with this information
+
+    return FakeHalo(
+        dmlist=dmlist,
+        ndm=ndm,
+        glist=glist,
+        ngas=ngas,
+        slist=slist,
+        nstar=nstar,
+        GroupID=halo,
+    )
+
+
+def initialiser(dm, gas, star):
+    """
+    Initialiser for the pool. See create_new_halo_catalogue and
+    https://stackoverflow.com/questions/39322677/python-how-to-use-value-and-array-in-multiprocessing-pool
+
+    This makes the coordinate arrays global.
+    """
+
+    global dm_coords, gas_coords, star_coords
+    dm_coords = dm
+    gas_coords = gas
+    star_coords = star
+
+    return
+
+
 def create_new_halo_catalogue(snapshot, factor: float) -> FakeCaesar:
     """
     Takes a snapshot object, and uses the information in it to re-create a
@@ -178,40 +252,48 @@ def create_new_halo_catalogue(snapshot, factor: float) -> FakeCaesar:
     # Dark matter component.
 
     centers, radii = find_all_halo_centers(
-        snapshot.dark_matter.halos, snpashot.dark_matter.coordinates
+        snapshot.dark_matter.halos, snapshot.dark_matter.coordinates.T
     )
 
     # Now we have to grab masks for each component individually and add them to a
     # halo list once processed
 
-    halos = []
+    data = zip(centers, radii, range(len(radii)))
 
-    for halo, (center, radius) in enumerate(
-        zip(centers, tqdm(radii, desc="Searching for particles in halos"))
-    ):
-        dm_mask = find_particles_in_halo(
-            snapshot.dark_matter.coordinates, center, radius * factor
-        )
-        gas_mask = find_particles_in_halo(
-            snapshot.baryonic_matter.gas_coordinates, center, radius * factor
-        )
-        star_mask = find_particles_in_halo(
-            snapshot.baryonic_matter.star_coordinates, center, radius * factor
-        )
+    from multiprocessing import Pool, RawArray
+    from ctypes import c_double
 
-        # Now we need to populate a FakeHalo object with this information
+    # This sets up a shared memory array for all of the coordinates, with
+    # a false lock as it's read-only (i.e. use RawArray).
+    dm_coords = RawArray(c_double, snapshot.dark_matter.coordinates.size)
+    gas_coords = RawArray(c_double, snapshot.baryonic_matter.gas_coordinates.size)
+    star_coords = RawArray(c_double, snapshot.baryonic_matter.star_coordinates.size)
 
-        halos.append(
-            FakeHalo(
-                dmlist=np.where(dm_mask),
-                ndm=dm_mask.sum(),
-                glist=np.where(gas_mask),
-                ngas=gas_mask.sum(),
-                slist=np.where(star_mask),
-                nstar=star_mask.sum(),
-                GroupID=halo,
-            )
-        )
+    # Need to now actually _write_ the data to our new blocks
+    np.frombuffer(dm_coords).reshape(snapshot.dark_matter.coordinates.shape)[
+        ...
+    ] = snapshot.dark_matter.coordinates[...]
+    np.frombuffer(gas_coords).reshape(snapshot.baryonic_matter.gas_coordinates.shape)[
+        ...
+    ] = snapshot.baryonic_matter.gas_coordinates[...]
+    np.frombuffer(star_coords).reshape(snapshot.baryonic_matter.star_coordinates.shape)[
+        ...
+    ] = snapshot.baryonic_matter.star_coordinates[...]
+
+    # 16 was chosen because memory leaks were seen with higher core counts. This
+    # should be investigated.
+    with Pool(
+        16, initializer=initialiser, initargs=(dm_coords, gas_coords, star_coords)
+    ) as processing_pool:
+        # This allows the progress bar to be displayed even in parallel.
+        halos = list(tqdm(processing_pool.imap(single_run, data), total=len(centers)))
+
+    # Now need to sort the output
+    halos = sorted(halos, key=lambda x: x.GroupID)
+
+    # There may be some problem here with a particle being assigned to two
+    # halos, but hopefully that will be sorted out in the processing loop later
+    # when the data is re-imported.
 
     # We can now convert to a FakeCaesar object
 
