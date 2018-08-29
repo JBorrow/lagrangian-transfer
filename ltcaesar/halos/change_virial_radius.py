@@ -245,7 +245,7 @@ def initialiser(dm, gas, star):
     return
 
 
-def create_new_halo_catalogue(snapshot, factor: float) -> FakeCaesar:
+def create_new_halo_catalogue(snapshot, factor: float, n_threads=16) -> FakeCaesar:
     """
     Takes a snapshot object, and uses the information in it to re-create a
     halo catalogue with the virial radius increased by "factor".
@@ -286,7 +286,7 @@ def create_new_halo_catalogue(snapshot, factor: float) -> FakeCaesar:
     # 16 was chosen because memory leaks were seen with higher core counts. This
     # should be investigated.
     with Pool(
-        16, initializer=initialiser, initargs=(dm_coords, gas_coords, star_coords)
+        n_threads, initializer=initialiser, initargs=(dm_coords, gas_coords, star_coords)
     ) as processing_pool:
         # This allows the progress bar to be displayed even in parallel.
         halos = list(tqdm(processing_pool.imap(single_run, data), total=len(centers)))

@@ -173,6 +173,30 @@ To re-run the full analysis with this pickled object, all that is required is to
 provide a truthy value to the `-o` flag in `analyse.py`.
 
 
+Virial Radius
+-------------
+
+To check that the analysis is robust under the radius of particles included, we
+must repeat it using different radii. You can generate a `FakeCaeasar` catalogue
+from your existing `ltcaesar.objects.Snapshot` instance by using:
+
+```python
+import ltcaesar
+data = ltcaesar.read_data_from_file(...)
+
+new_catalogue = ltcaesar.halos.create_new_halo_catalogue(
+    snapshot=data.snapshot_end,
+    factor=1.2 # Finds particles within 1.2 R_vir
+    nthreads=16
+)
+```
+
+You can then re-run the analysis using that in-memory catalogue or write it to
+disk. This analysis takes a _very long time_, around 4 hours using 16 threads
+for a 512^3 simulation. It also has some memory issues, so watch out. You may need
+to reduce the number of threads that it uses.
+
+
 Difficult Snapshots
 -------------------
 
