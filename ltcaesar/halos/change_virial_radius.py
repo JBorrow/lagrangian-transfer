@@ -190,6 +190,9 @@ def single_run(data):
     star_shape = (len(star_coords) // 3, 3)
 
     dm_mask = find_particles_in_halo(
+        # frombuffer returns a reshaped _view_ on the shared memory
+        # data, preventing copies of these coordinates being stored
+        # on a thread-by-thread basis (hopefully).
         np.frombuffer(dm_coords).reshape(dm_shape), center, radius
     )
     dmlist = np.where(dm_mask)
@@ -288,7 +291,7 @@ def create_new_halo_catalogue(snapshot, factor: float) -> FakeCaesar:
         # This allows the progress bar to be displayed even in parallel.
         halos = list(tqdm(processing_pool.imap(single_run, data), total=len(centers)))
 
-    # Now need to sort the output
+    # Now need to sort the output as it could come out in any order
     halos = sorted(halos, key=lambda x: x.GroupID)
 
     # There may be some problem here with a particle being assigned to two
