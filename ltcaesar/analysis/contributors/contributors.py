@@ -31,10 +31,13 @@ def find_contributors_to_halo(halo, simulation):
     for ptype in ["gas", "star"]:
         list_name = "{}list".format(ptype[0])
         index_list = getattr(catalogue_entry, list_name)
-        lr_array = getattr(simulation.snapshot_end.baryonic_matter, f"{}_lagrangian_regions".format(ptype))
+        lr_array = getattr(
+            simulation.snapshot_end.baryonic_matter,
+            "{}_lagrangian_regions".format(ptype),
+        )
 
         relevant_lrs = lr_array[index_list]
-        
+
         halo_ids, counts = np.unique(relevant_lrs, return_counts=True)
 
         output[ptype] = dict(halo_ids, counts)
@@ -49,5 +52,3 @@ def find_contributors_to_halo(halo, simulation):
     output["dm"] = dict(halo_ids, counts)
 
     return output
-
-
