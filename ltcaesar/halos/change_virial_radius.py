@@ -254,6 +254,12 @@ def create_new_halo_catalogue(
 
     # We can now convert to a FakeCaesar object
 
+    # Something odd happens here with things returning tuples instead of arrays.
+    for halo in halos:
+        halo.dmlist = halo.dmlist[0]
+        halo.glist = halo.glist[0]
+        halo.slist = halo.slist[0]
+
     halo_catalogue = FakeCaesar(halos=halos, nhalos=len(halos))
 
     return halo_catalogue
