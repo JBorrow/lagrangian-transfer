@@ -25,30 +25,34 @@ def find_contributors_to_halo(halo, simulation):
         }
     """
 
-    catalogue_entry = simulation.snapshot_end.halo_catalogue[halo]
+    catalogue_entry = simulation.snapshot_end.halo_catalogue.halos[halo]
     output = {}
 
     for ptype in ["gas", "star"]:
-        list_name = "{}list".format(ptype[0])
-        index_list = getattr(catalogue_entry, list_name)
+        mask = getattr(
+            simulation.snapshot_end.baryonic_matter,
+            "{}_halos".format(ptype)
+        ) == halo
         lr_array = getattr(
             simulation.snapshot_end.baryonic_matter,
             "{}_lagrangian_regions".format(ptype),
         )
 
-        relevant_lrs = lr_array[index_list]
+        relevant_lrs = lr_array[mask]
 
         halo_ids, counts = np.unique(relevant_lrs, return_counts=True)
 
-        output[ptype] = dict(halo_ids, counts)
+        output[ptype] = {k:v for k, v in zip(halo_ids, counts)}
 
     # Unforunately DM _has_ to be special.
 
-    index_list = catalogue_entry.dmlist
-    lr_array = simulation.snapshot_end.dark_matter.lagrangian_regions
-    relevant_lrs = lr_array[index_list]
+    mask = simulation.snapshot_end.dark_matter.halos == halo
+    # Defined to be the same. Note we expect that this output is just one halo
+    # but it's always nice to have the check.
+    lr_array = simulation.snapshot_end.dark_matter.halos
+    relevant_lrs = lr_array[mask]
     halo_ids, counts = np.unique(relevant_lrs, return_counts=True)
 
-    output["dm"] = dict(halo_ids, counts)
+    output["dm"] = {k:v for k, v in zip(halo_ids, counts)}
 
     return output
