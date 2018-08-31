@@ -181,7 +181,7 @@ def change_virial_radius(
     with the most massive halos _first_) so that smaller halos can 'steal'
     particles back from their larger neighbours.
     """
-
+    
     # Default state: all particles outside halos
     new_halos = np.zeros_like(halos) - 1
 
