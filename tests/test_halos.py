@@ -150,6 +150,7 @@ def test_create_new_halo_catalogue(contamination=0.01, make_plot=False):
         expected_indicies.append(np.where(mask)[0])
         halos[mask] = n
 
+(??)
     # Mock up the simulation class
 
     simulation = mock.MagicMock()
