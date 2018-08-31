@@ -2,12 +2,13 @@
 Tests the functions in the halos submodule.
 """
 
-from ltcaesar.halos import \
-    parse_halos_and_coordinates, \
-    find_all_halo_centers, \
-    find_particles_in_halo, \
-    change_virial_radius, \
-    create_new_halo_catalogue
+from ltcaesar.halos import (
+    parse_halos_and_coordinates,
+    find_all_halo_centers,
+    change_virial_radius,
+    find_particles_in_halo,
+    create_new_halo_catalogue,
+)
 
 import numpy as np
 
@@ -32,35 +33,6 @@ def test_parse_halos_and_coordinates():
     assert (expected_indicies == indicies).all()
 
 
-def test_find_all_halo_centers():
-    """
-    This is quite easy to test, we just need to generate things in 
-    1D.
-    """
-    
-    halos = np.array([0, 0, 0, 1, 1, 1])
-    coordinates = np.array([
-        # Halo 0
-        [1.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0],
-        [-1.0, 0.0, 0.0],
-        # Halo 1
-        [-1.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0],
-        [2.0, 0.0, 0.0],
-    ]).T
-
-    output, indicies = parse_halos_and_coordinates(halos, coordinates)
-
-    expected_centers = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]])
-    expected_radii = np.array([1.0, 1.5])
-
-    centers, radii = find_all_halo_centers(halos, coordinates)
-
-    assert (expected_centers == centers).all()
-    assert (expected_radii == radii).all()
-
-
 def test_find_particles_in_halo():
     """
     This test is performed in 2D.
@@ -75,14 +47,45 @@ def test_find_particles_in_halo():
     radius = 10.0
 
     mask = find_particles_in_halo(coordinates, center, radius)
-    
+
     # Generate expected answers
 
     dx = coordinates - center
-    expected_radii = np.array([sum(x*x)**(0.5) for x in dx])
+    expected_radii = np.array([sum(x * x) ** (0.5) for x in dx])
     expected_mask = expected_radii <= radius
 
     assert (expected_mask == mask).all()
+
+
+def test_find_all_halo_centers():
+    """
+    This is quite easy to test, we just need to generate things in 
+    1D.
+    """
+
+    halos = np.array([0, 0, 0, 1, 1, 1])
+    coordinates = np.array(
+        [
+            # Halo 0
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            # Halo 1
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+        ]
+    ).T
+
+    output, indicies = parse_halos_and_coordinates(halos, coordinates)
+
+    expected_centers = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0]])
+    expected_radii = np.array([1.0, 1.5])
+
+    centers, radii = find_all_halo_centers(halos, coordinates)
+
+    assert (expected_centers == centers).all()
+    assert (expected_radii == radii).all()
 
 
 def test_change_virial_radius():
@@ -97,7 +100,7 @@ def test_change_virial_radius():
 
     dx = particles - halo_center
     r = np.sqrt(np.sum(dx * dx, axis=1))
-    
+
     halos = np.empty(1000)
     halos[r <= halo_radius] = 0
     halos[r > halo_radius] = -1
@@ -107,13 +110,13 @@ def test_change_virial_radius():
         coordinates=particles,
         centers=[halo_center],
         radii=[halo_radius],
-        factor=1.0
+        factor=1.0,
     )
 
     assert (halos == new_halos).all()
 
 
-def test_create_new_halo_catalogue(contamination=0.01):
+def test_create_new_halo_catalogue(contamination=0.01, make_plot=False):
     """
     Tests the creation of a new halo catalogue whilst appropriately mocking
     up data.
@@ -121,22 +124,31 @@ def test_create_new_halo_catalogue(contamination=0.01):
     Note that this test runs in full 3D.
     """
 
+    boxsize = 1.0
+
     # Fake data generation
     particles = np.random.rand(300000).reshape((100000, 3))
-    halo_radiis = [0.2, 0.1]
-    halo_centers = [np.array([0.3, 0.3, 0.3]), np.array([0.8, 0.8, 0.8])]
+    halo_radiis = [0.2, 0.1, 0.2]
+    halo_centers = [
+        np.array([0.3, 0.3, 0.3]),
+        np.array([0.8, 0.8, 0.8]),
+        np.array([0.0, 1.0, 0.5]),
+    ]
     halos = np.empty(100000, dtype=int)
     halos[...] = -1
     expected_indicies = []
 
     for n, (r, c) in enumerate(zip(halo_radiis, halo_centers)):
         dx = particles - c
+
+        dx -= (dx > boxsize * 0.5) * boxsize
+        dx += (dx <= -boxsize * 0.5) * boxsize
+
         rads = np.sqrt(np.sum(dx * dx, axis=1))
-        
+
         mask = rads <= r
         expected_indicies.append(np.where(mask)[0])
         halos[mask] = n
-
 
     # Mock up the simulation class
 
@@ -148,7 +160,27 @@ def test_create_new_halo_catalogue(contamination=0.01):
     simulation.baryonic_matter.gas_coordinates = np.array([])
     simulation.baryonic_matter.star_coordinates = np.array([])
 
-    output = create_new_halo_catalogue(simulation, factor=1.0, n_threads=2)
+    output = create_new_halo_catalogue(
+        simulation, factor=1.0, n_threads=2, boxsize=boxsize
+    )
+
+    if make_plot:
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(12, 6))
+        ax[0].set_xlim(0, 1)
+        ax[0].set_ylim(0, 1)
+
+        for indicies, halo, n in zip(expected_indicies, output.halos, [0, 1, 2]):
+            x = particles[indicies].T
+            ax[0].scatter(x[0], x[1], s=0.2, lw=0, label=n)
+            y = particles[halo.dmlist].T
+            ax[1].scatter(y[0], y[1], s=0.2, lw=0, label=n)
+
+        ax[0].set_title("Initial")
+        ax[1].set_title("From create_new_halo_catalogue")
+        fig.legend(frameon=False)
+        fig.savefig("test_create_new_halo_catalogue.png", dpi=300)
 
     # Now we have to compare the expected indicies.
 
@@ -158,4 +190,4 @@ def test_create_new_halo_catalogue(contamination=0.01):
         diff = len(np.setdiff1d(indicies, halo.dmlist))
         total = len(indicies)
 
-        assert diff/total < contamination
+        assert diff / total < contamination

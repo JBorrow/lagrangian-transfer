@@ -18,6 +18,7 @@ except ImportError:
         return x
 
 
+from scipy.spatial import cKDTree as KDTree
 from typing import Tuple
 
 from .halos import FakeCaesar, FakeHalo
@@ -72,7 +73,7 @@ def parse_halos_and_coordinates(
     return output, output_indicies
 
 
-def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
+def find_all_halo_centers(halos: np.array, coordinates: np.ndarray, boxsize=None):
     """
     This function finds all halo centers as well as radii.
 
@@ -82,6 +83,8 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
     particle; we can take the x-coordinate from one, the y-coordinate from
     another. The radius of the halo is then determined as the maximal distance
     from the center to one of these extreme points.
+
+    Boxsize, if given, allows this to work over periodic boundaries.
     """
 
     output, output_indicies = parse_halos_and_coordinates(halos, coordinates)
@@ -93,16 +96,41 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
 
     for index, halo_coordinates in enumerate(output):
         # Grab extreme values in all dimensions
-        max_values = halo_coordinates.max(axis=0)
-        min_values = halo_coordinates.min(axis=0)
-        center = 0.5 * (max_values + min_values)
+        if boxsize is None:
+            max_values = halo_coordinates.max(axis=0)
+            min_values = halo_coordinates.min(axis=0)
+            center = 0.5 * (max_values + min_values)
 
-        # Let's just brute force this...
-        dx = halo_coordinates - center
-        r = np.sqrt(np.sum(dx*dx, axis=1))
+            # Let's just brute force this...
+            dx = halo_coordinates - center
+            r = np.sqrt(np.sum(dx * dx, axis=1))
 
-        centers[index] = center
-        radii[index] = r.max()
+            centers[index] = center
+            radii[index] = r.max()
+        else:
+            # Periodic boundary conditions, oh jeez.
+            # First, we select one of the particles to act as a reference
+            # point for all relative/periodic calculations.
+            relative_coord = halo_coordinates[0]
+            # This gets us the coordinates in some semblence of "real space"
+            # where e.g. a sphere split over the boundary becomes a sphere again
+            relative_offsets = halo_coordinates - relative_coord
+            relative_offsets -= (relative_offsets > boxsize * 0.5) * boxsize
+            relative_offsets += (relative_offsets <= -boxsize * 0.5) * boxsize
+            # In this space, we need to do our actual calculations
+            max_values = relative_offsets.max(axis=0)
+            min_values = relative_offsets.min(axis=0)
+            relative_center = 0.5 * (max_values + min_values)
+
+            # Let's just brute force this...
+            dx = relative_offsets - relative_center
+            r = np.sqrt(np.sum(dx * dx, axis=1))
+
+            # Now we need to unwrap our center
+            wrapped_center = relative_center + relative_coord
+
+            centers[index] = wrapped_center
+            radii[index] = r.max()
 
     return centers, radii
 
@@ -110,15 +138,13 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
 def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: float):
     """
     Finds all particles (returns a boolean mask) that live in the sphere defined
-    by center, radius.
+    by center, radius. (Slow; for many particles you should use a tree!)
     """
 
     # First, we will chop out the cube that is defined by the center and radius.
     cube_mask = np.logical_and(
         coordinates <= (center + radius), coordinates >= (center - radius)
-    ).all(
-        axis=1
-    )  # (this generates 3xn array)
+    ).all(axis=1)  # (this generates 3xn array)
 
     coordinates_in_cube = coordinates[cube_mask]
 
@@ -155,7 +181,7 @@ def change_virial_radius(
     with the most massive halos _first_) so that smaller halos can 'steal'
     particles back from their larger neighbours.
     """
-    
+
     # Default state: all particles outside halos
     new_halos = np.zeros_like(halos) - 1
 
@@ -169,84 +195,9 @@ def change_virial_radius(
     return new_halos
 
 
-def single_run(data):
-    """
-    Does a single data run. Data is
-    [0] = center
-    [1] = radius * factor
-    [2] = halo number
-
-    dm, gas, star are the arrays of those coordinates
-   
-    See create_new_halo_catalogue
-    """
-
-    center = data[0]
-    radius = data[1]
-    halo = data[2]
-
-    # We need to reshape the stuff to numpy arrays on demand
-    dm_shape = (len(dm_coords) // 3, 3)
-    gas_shape = (len(gas_coords) // 3, 3)
-    star_shape = (len(star_coords) // 3, 3)
-
-    dm_mask = find_particles_in_halo(
-        # frombuffer returns a reshaped _view_ on the shared memory
-        # data, preventing copies of these coordinates being stored
-        # on a thread-by-thread basis (hopefully).
-        np.frombuffer(dm_coords).reshape(dm_shape), center, radius
-    )
-    dmlist = np.where(dm_mask)
-    ndm = dm_mask.sum()
-
-    del dm_mask
-
-    gas_mask = find_particles_in_halo(
-        np.frombuffer(gas_coords).reshape(gas_shape), center, radius
-    )
-    glist = np.where(gas_mask)
-    ngas = gas_mask.sum()
-
-    del gas_mask
-
-    star_mask = find_particles_in_halo(
-        np.frombuffer(star_coords).reshape(star_shape), center, radius
-    )
-    slist = np.where(star_mask)
-    nstar = star_mask.sum()
-
-    del star_mask
-
-    # Now we need to populate a FakeHalo object with this information
-
-    return FakeHalo(
-        dmlist=dmlist,
-        ndm=ndm,
-        glist=glist,
-        ngas=ngas,
-        slist=slist,
-        nstar=nstar,
-        GroupID=halo,
-    )
-
-
-def initialiser(dm, gas, star):
-    """
-    Initialiser for the pool. See create_new_halo_catalogue and
-    https://stackoverflow.com/questions/39322677/python-how-to-use-value-and-array-in-multiprocessing-pool
-
-    This makes the coordinate arrays global.
-    """
-
-    global dm_coords, gas_coords, star_coords
-    dm_coords = dm
-    gas_coords = gas
-    star_coords = star
-
-    return
-
-
-def create_new_halo_catalogue(snapshot, factor: float, n_threads=16) -> FakeCaesar:
+def create_new_halo_catalogue(
+    snapshot, factor: float, n_threads=16, boxsize=None
+) -> FakeCaesar:
     """
     Takes a snapshot object, and uses the information in it to re-create a
     halo catalogue with the virial radius increased by "factor".
@@ -256,56 +207,52 @@ def create_new_halo_catalogue(snapshot, factor: float, n_threads=16) -> FakeCaes
     # Dark matter component.
 
     centers, radii = find_all_halo_centers(
-        snapshot.dark_matter.halos, snapshot.dark_matter.coordinates.T
+        snapshot.dark_matter.halos, snapshot.dark_matter.coordinates.T, boxsize=boxsize
     )
 
-    # Now we have to grab masks for each component individually and add them to a
-    # halo list once processed
+    # We need to build trees for each of the particle types
+    dm_tree = KDTree(snapshot.dark_matter.coordinates, boxsize=boxsize)
 
-    data = zip(centers, radii, range(len(radii)))
+    # If there are no particles in gas, etc. we fail out!
+    try:
+        gas_tree = KDTree(snapshot.baryonic_matter.gas_coordinates, boxsize=boxsize)
+    except ValueError:
+        gas_tree = None
+    try:
+        star_tree = KDTree(snapshot.baryonic_matter.star_coordinates, boxsize=boxsize)
+    except ValueError:
+        star_tree = None
 
-    from multiprocessing import Pool, RawArray
-    from ctypes import c_double
+    halos = []
 
-    # This sets up a shared memory array for all of the coordinates, with
-    # a false lock as it's read-only (i.e. use RawArray).
-    dm_coords = RawArray(c_double, snapshot.dark_matter.coordinates.size)
-    gas_coords = RawArray(c_double, snapshot.baryonic_matter.gas_coordinates.size)
-    star_coords = RawArray(c_double, snapshot.baryonic_matter.star_coordinates.size)
+    for halo, (center, radius) in enumerate(zip(centers, radii)):
+        dmlist = dm_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+        if gas_tree is not None:
+            glist = gas_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+        else:
+            glist = np.array([])
+        if star_tree is not None:
+            slist = star_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+        else:
+            slist = np.array([])
 
-    # Need to now actually _write_ the data to our new blocks
-    np.frombuffer(dm_coords).reshape(snapshot.dark_matter.coordinates.shape)[
-        ...
-    ] = snapshot.dark_matter.coordinates[...]
-    np.frombuffer(gas_coords).reshape(snapshot.baryonic_matter.gas_coordinates.shape)[
-        ...
-    ] = snapshot.baryonic_matter.gas_coordinates[...]
-    np.frombuffer(star_coords).reshape(snapshot.baryonic_matter.star_coordinates.shape)[
-        ...
-    ] = snapshot.baryonic_matter.star_coordinates[...]
-
-    # 16 was chosen because memory leaks were seen with higher core counts. This
-    # should be investigated.
-    with Pool(
-        n_threads, initializer=initialiser, initargs=(dm_coords, gas_coords, star_coords)
-    ) as processing_pool:
-        # This allows the progress bar to be displayed even in parallel.
-        halos = list(tqdm(processing_pool.imap(single_run, data), total=len(centers)))
-
-    # Now need to sort the output as it could come out in any order
-    halos = sorted(halos, key=lambda x: x.GroupID)
+        halos.append(
+            FakeHalo(
+                dmlist=dmlist,
+                ndm=len(dmlist),
+                glist=glist,
+                ngas=len(glist),
+                slist=slist,
+                nstar=len(slist),
+                GroupID=halo,
+            )
+        )
 
     # There may be some problem here with a particle being assigned to two
     # halos, but hopefully that will be sorted out in the processing loop later
     # when the data is re-imported.
 
     # We can now convert to a FakeCaesar object
-
-    # Something odd happens here with things returning tuples instead of arrays.
-    for halo in halos:
-        halo.dmlist = halo.dmlist[0]
-        halo.glist = halo.glist[0]
-        halo.slist = halo.slist[0]
 
     halo_catalogue = FakeCaesar(halos=halos, nhalos=len(halos))
 
