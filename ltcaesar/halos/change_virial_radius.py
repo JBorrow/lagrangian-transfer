@@ -181,7 +181,7 @@ def change_virial_radius(
     with the most massive halos _first_) so that smaller halos can 'steal'
     particles back from their larger neighbours.
     """
-    
+
     # Default state: all particles outside halos
     new_halos = np.zeros_like(halos) - 1
 
@@ -253,12 +253,6 @@ def create_new_halo_catalogue(
     # when the data is re-imported.
 
     # We can now convert to a FakeCaesar object
-
-    # Something odd happens here with things returning tuples instead of arrays.
-    for halo in halos:
-        halo.dmlist = halo.dmlist[0]
-        halo.glist = halo.glist[0]
-        halo.slist = halo.slist[0]
 
     halo_catalogue = FakeCaesar(halos=halos, nhalos=len(halos))
 
