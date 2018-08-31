@@ -97,12 +97,12 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray):
         min_values = halo_coordinates.min(axis=0)
         center = 0.5 * (max_values + min_values)
 
-        # This could be vectorised but would be much less memory efficient
-        max_radius = np.sqrt(np.sum((max_values - center) ** 2))
-        min_radius = np.sqrt(np.sum((min_values - center) ** 2))
+        # Let's just brute force this...
+        dx = halo_coordinates - center
+        r = np.sqrt(np.sum(dx*dx, axis=1))
 
         centers[index] = center
-        radii[index] = max([max_radius, min_radius])
+        radii[index] = r.max()
 
     return centers, radii
 

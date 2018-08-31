@@ -5,9 +5,13 @@ Tests the functions in the halos submodule.
 from ltcaesar.halos import \
     parse_halos_and_coordinates, \
     find_all_halo_centers, \
-    find_particles_in_halo 
+    find_particles_in_halo, \
+    change_virial_radius, \
+    create_new_halo_catalogue
 
 import numpy as np
+
+import unittest.mock as mock
 
 
 def test_parse_halos_and_coordinates():
@@ -81,3 +85,77 @@ def test_find_particles_in_halo():
     assert (expected_mask == mask).all()
 
 
+def test_change_virial_radius():
+    """
+    Tests to see if the change_virial_radius function actually recovers the
+    original solution.
+    """
+
+    particles = np.random.rand(3000).reshape((1000, 3))
+    halo_radius = 0.2
+    halo_center = np.array([0.5, 0.5, 0.5])
+
+    dx = particles - halo_center
+    r = np.sqrt(np.sum(dx * dx, axis=1))
+    
+    halos = np.empty(1000)
+    halos[r <= halo_radius] = 0
+    halos[r > halo_radius] = -1
+
+    new_halos = change_virial_radius(
+        halos=halos,
+        coordinates=particles,
+        centers=[halo_center],
+        radii=[halo_radius],
+        factor=1.0
+    )
+
+    assert (halos == new_halos).all()
+
+
+def test_create_new_halo_catalogue(contamination=0.01):
+    """
+    Tests the creation of a new halo catalogue whilst appropriately mocking
+    up data.
+
+    Note that this test runs in full 3D.
+    """
+
+    # Fake data generation
+    particles = np.random.rand(300000).reshape((100000, 3))
+    halo_radiis = [0.2, 0.1]
+    halo_centers = [np.array([0.3, 0.3, 0.3]), np.array([0.8, 0.8, 0.8])]
+    halos = np.empty(100000, dtype=int)
+    halos[...] = -1
+    expected_indicies = []
+
+    for n, (r, c) in enumerate(zip(halo_radiis, halo_centers)):
+        dx = particles - c
+        rads = np.sqrt(np.sum(dx * dx, axis=1))
+        
+        mask = rads <= r
+        expected_indicies.append(np.where(mask)[0])
+        halos[mask] = n
+
+
+    # Mock up the simulation class
+
+    simulation = mock.MagicMock()
+    simulation.dark_matter.halos = halos
+    simulation.dark_matter.coordinates = particles
+    simulation.baryonic_matter.gas_halos = np.array([])
+    simulation.baryonic_matter.star_halos = np.array([])
+    simulation.baryonic_matter.gas_coordinates = np.array([])
+    simulation.baryonic_matter.star_coordinates = np.array([])
+
+    output = create_new_halo_catalogue(simulation, factor=1.0, n_threads=2)
+
+    # Now we have to compare the expected indicies.
+
+    for indicies, halo in zip(expected_indicies, output.halos):
+        # These will not give exactly pairwise equal results because of the
+        # way that we crudely find halos. Hence we need a criteria.
+        diff = len(np.setdiff1d(indicies, halo.dmlist))
+        total = len(indicies)
+
+        assert diff/total < contamination
