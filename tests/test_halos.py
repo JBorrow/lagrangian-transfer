@@ -191,3 +191,79 @@ def test_create_new_halo_catalogue(contamination=0.01, make_plot=False):
         total = len(indicies)
 
         assert diff / total < contamination
+
+
+def test_coorect_overlap(contamination=0.01, make_plot=False):
+    """
+    Tests the creation of a new halo catalogue whilst appropriately mocking
+    up data.
+
+    Note that this test runs in full 3D.
+    """
+
+    boxsize = 1.0
+
+    # Fake data generation
+    particles = np.random.rand(300000).reshape((100000, 3))
+    halo_radiis = [0.3, 0.1]
+    halo_centers = [
+        np.array([0.5, 0.5, 0.5]),
+        np.array([0.4, 0.5, 0.5]),
+    ]
+    halos = np.empty(100000, dtype=int)
+    halos[...] = -1
+    expected_indicies = []
+
+    for n, (r, c) in enumerate(zip(halo_radiis, halo_centers)):
+        dx = particles - c
+
+        dx -= (dx > boxsize * 0.5) * boxsize
+        dx += (dx <= -boxsize * 0.5) * boxsize
+
+        rads = np.sqrt(np.sum(dx * dx, axis=1))
+
+        mask = rads <= r
+        expected_indicies.append(np.where(mask)[0])
+        halos[mask] = n
+
+    # Mock up the simulation class
+
+    simulation = mock.MagicMock()
+    simulation.dark_matter.halos = halos
+    simulation.dark_matter.coordinates = particles
+    simulation.baryonic_matter.gas_halos = np.array([])
+    simulation.baryonic_matter.star_halos = np.array([])
+    simulation.baryonic_matter.gas_coordinates = np.array([])
+    simulation.baryonic_matter.star_coordinates = np.array([])
+
+    output = create_new_halo_catalogue(
+        simulation, factor=1.0, n_threads=2, boxsize=boxsize
+    )
+
+    if make_plot:
+        import matplotlib.pyplot as plt
+        
+        fig, ax = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(12, 6))
+        ax[0].set_xlim(0, 1)
+        ax[0].set_ylim(0, 1)
+
+        for indicies, halo, n in zip(expected_indicies, output.halos, [0, 1, 2]):
+            x = particles[indicies].T
+            ax[0].scatter(x[0], x[1], s=0.2, lw=0, label=n, alpha=0.5)
+            y = particles[halo.dmlist].T
+            ax[1].scatter(y[0], y[1], s=0.2, lw=0, label=n, alpha=0.5)
+
+        ax[0].set_title("Initial")
+        ax[1].set_title("From create_new_halo_catalogue")
+        fig.legend(frameon=False)
+        fig.savefig("test_create_new_halo_catalogue.png", dpi=300)
+
+    # Now we have to compare the expected indicies.
+
+    for indicies, halo in zip(expected_indicies, output.halos):
+        # These will not give exactly pairwise equal results because of the
+        # way that we crudely find halos. Hence we need a criteria.
+        diff = len(np.setdiff1d(indicies, halo.dmlist))
+        total = len(indicies)
+
+        assert diff / total < contamination
