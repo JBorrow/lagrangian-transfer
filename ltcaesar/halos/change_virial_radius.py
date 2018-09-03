@@ -237,6 +237,9 @@ def create_new_halo_catalogue(
         # We need to build trees for each of the particle types
         dm_tree = KDTree(snapshot.dark_matter.coordinates, boxsize=boxsize)
 
+    # Re-set radii to be at larger distance
+    radii *= factor
+
     # If there are no particles in gas, etc. we fail out!
     try:
         if unsort_gas is not None:
