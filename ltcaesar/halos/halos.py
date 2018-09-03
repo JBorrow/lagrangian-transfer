@@ -25,7 +25,6 @@ of attempting to load the caesar snapshot.
 Note: this will probably not work with the current i/o functions.
 """
 
-# We need this only for typing information.
 import numpy as np
 from typing import Union, List
 
