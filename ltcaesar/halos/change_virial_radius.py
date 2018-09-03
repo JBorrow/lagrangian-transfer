@@ -144,7 +144,9 @@ def find_particles_in_halo(coordinates: np.ndarray, center: np.array, radius: fl
     # First, we will chop out the cube that is defined by the center and radius.
     cube_mask = np.logical_and(
         coordinates <= (center + radius), coordinates >= (center - radius)
-    ).all(axis=1)  # (this generates 3xn array)
+    ).all(
+        axis=1
+    )  # (this generates 3xn array)
 
     coordinates_in_cube = coordinates[cube_mask]
 
@@ -196,30 +198,64 @@ def change_virial_radius(
 
 
 def create_new_halo_catalogue(
-    snapshot, factor: float, n_threads=16, boxsize=None
+    snapshot,
+    factor: float,
+    n_threads=16,
+    boxsize=None,
+    unsort_dm=None,
+    unsort_gas=None,
+    unsort_star=None,
 ) -> FakeCaesar:
     """
     Takes a snapshot object, and uses the information in it to re-create a
     halo catalogue with the virial radius increased by "factor".
+
+    The unsort arrays are required if your data has been sorted w.r.t. the
+    way that it will be read in. These are essentially the inverse of the
+    sort() function. You can get this from searchsorted.
     """
 
     # First, we'll find the centers and radii of all of the halos based on their
     # Dark matter component.
 
-    centers, radii = find_all_halo_centers(
-        snapshot.dark_matter.halos, snapshot.dark_matter.coordinates.T, boxsize=boxsize
-    )
+    if unsort_dm is not None:
+        centers, radii = find_all_halo_centers(
+            snapshot.dark_matter.halos[unsort_dm],
+            snapshot.dark_matter.coordinates[unsort_dm].T,
+            boxsize=boxsize,
+        )
 
-    # We need to build trees for each of the particle types
-    dm_tree = KDTree(snapshot.dark_matter.coordinates, boxsize=boxsize)
+        # We need to build trees for each of the particle types
+        dm_tree = KDTree(snapshot.dark_matter.coordinates[unsort_dm], boxsize=boxsize)
+    else:
+        centers, radii = find_all_halo_centers(
+            snapshot.dark_matter.halos,
+            snapshot.dark_matter.coordinates.T,
+            boxsize=boxsize,
+        )
+
+        # We need to build trees for each of the particle types
+        dm_tree = KDTree(snapshot.dark_matter.coordinates, boxsize=boxsize)
 
     # If there are no particles in gas, etc. we fail out!
     try:
-        gas_tree = KDTree(snapshot.baryonic_matter.gas_coordinates, boxsize=boxsize)
+        if unsort_gas is not None:
+            gas_tree = KDTree(
+                snapshot.baryonic_matter.gas_coordinates[unsort_gas], boxsize=boxsize
+            )
+        else:
+            gas_tree = KDTree(snapshot.baryonic_matter.gas_coordinates, boxsize=boxsize)
     except ValueError:
         gas_tree = None
     try:
-        star_tree = KDTree(snapshot.baryonic_matter.star_coordinates, boxsize=boxsize)
+        if unsort_star is not None:
+            star_tree = KDTree(
+                snapshot.baryonic_matter.star_coordinates[unsort_star], boxsize=boxsize
+            )
+        else:
+            star_tree = KDTree(
+                snapshot.baryonic_matter.star_coordinates, boxsize=boxsize
+            )
     except ValueError:
         star_tree = None
 
