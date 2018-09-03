@@ -138,6 +138,10 @@ class FakeSimulation(object):
 
             setattr(self.snapshot_end.baryonic_matter, lr_name, data)
 
+        self.snapshot_end.dark_matter.lagrangian_regions = self.handle[
+            "snapshot_end/dark_matter/lagrangian_regions"
+        ][...]
+
         return
 
 
@@ -255,6 +259,13 @@ def write_data_to_file(filename, simulation: Simulation):
         baryonic_group.create_dataset(
             "star_lagrangian_regions",
             data=simulation.snapshot_end.baryonic_matter.star_lagrangian_regions,
+        )
+
+        dm_group = handle["snapshot_end"].create_group("dark_matter")
+
+        dm_group.create_dataset(
+            "lagrangian_regions",
+            data=simulation.snapshot_end.dark_matter.lagrangian_regions
         )
 
     return

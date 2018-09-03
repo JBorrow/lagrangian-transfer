@@ -102,6 +102,30 @@ PARSER.add_argument(
     default=False,
 )
 
+PARSER.add_argument(
+    "-l",
+    "--lagrangianregions",
+    help="""
+    Perform a nearest-neighbour search for -l neighbours and set the 
+    lagrangian region ID to that of the lowest mass halo in the group.
+    This is usedful for "filling out" holes.
+    """,
+    required=False,
+    default=1
+)
+
+PARSER.add_argument(
+    "-a",
+    "--aboveid",
+    help="""
+    Cut away halos above this ID and ensure that their particles have their
+    halo ID set to -1. This is useful to ensure less spurious transfer from
+    "tiny" halos.
+    """,
+    required=False,
+    default=None
+)
+
 
 if __name__ == "__main__":
     ARGS = vars(PARSER.parse_args())
@@ -112,6 +136,11 @@ if __name__ == "__main__":
     no_trunc = bool(ARGS["notrunc"])
     use_yt = bool(int(ARGS["yt"]))
     other_halo_finder = bool(int(ARGS["otherhalofinder"]))
+    lagrangian_regions = int(ARGS["lagrangianregions"])
+    if ARGS["aboveid"] is not None:
+        above_id = None
+    else:
+        above_id = int(ARGS["aboveid"])
 
     # Print a summary of code options chosen.
 
@@ -122,7 +151,9 @@ if __name__ == "__main__":
         "\t Caesar filename: {}\n".format(caesar_filename),
         "\t No truncation: {}\n".format(no_trunc),
         "\t Use yt to load data: {}\n".format(use_yt),
-        "\t Use another halo finder: {}".format(other_halo_finder),
+        "\t Use another halo finder: {}\n".format(other_halo_finder),
+        "\t Smoothing LRs with a neighbour search of {} neighbours\n".format(lagrangian_regions),
+        "\t Cutting halos above ID: {}.".format(above_id)
     )
 
     # Change out the caesar filename for the FakeCaesar catalogue data
@@ -162,6 +193,8 @@ if __name__ == "__main__":
         caesar_filename,
         truncate_ids=truncate_id,
         load_using_yt=use_yt,
+        neighbours_for_lagrangian_regions=lagrangian_regions,
+        cut_halos_above_id=above_id
     )
 
     print("Running the simulation class")

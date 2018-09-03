@@ -45,21 +45,33 @@ class DMParticles(object):
     Reads the DM particles, and sorts them by their ParticleID.
     """
 
-    def __init__(self, particles, halo_catalogue=None):
+    def __init__(
+        self,
+        particles,
+        halo_catalogue=None,
+        neighbours_for_lagrangian_regions=1,
+        cut_halos_above_id=None,
+    ):
         """
         Takes the particles in PartType1 (the reference to it from h5py) and the
         halos catalogue from caesar.
 
         Note that this should be passed ceasar.load().halos for halo_catalogue,
         and file["/PartType1/"] for the particles.
+
+        For neighbours_for_lagrangian_regions see the help for
+        get_all_particle_references.
+
+        cut_halos_above_id sets the halo ID of particles belonging to a halo above
+        that ID to -1 (i.e. such that they lie outside halos). This can be useful
+        to check for transfer between halos that don't really "exist". This is best
+        used with the smoothing option also set so that these regions are filled in
+        by the neighbour search.
         """
         self.particles = particles
         self.halo_catalogue = halo_catalogue
 
         self.n_parts = len(particles["ParticleIDs"])
-
-        if halo_catalogue is not None:
-            self.halos = self.get_all_particle_references()
 
         # We may in the future need to ensure only the particles in the halos
         # have their data read.
@@ -67,15 +79,29 @@ class DMParticles(object):
         self.masses = self.read_array("Masses")
         self.coordinates = self.read_array("Coordinates")
 
+        if halo_catalogue is not None:
+            self.halos, self.lagrangian_regions = self.get_all_particle_references(
+                neighbours_for_lagrangian_regions, cut_halos_above_id
+            )
+
         self.sort_data()
 
         return
 
-    def get_all_particle_references(self):
+    def get_all_particle_references(
+        self, neighbours_for_lagrangian_regions=1, cut_halos_above_id=None
+    ):
         """
         Gets an nparticle long array that denotes which halo all of the dark matter
         particles belongs to. Particles that do not reside in halos have their
         value set to -1.
+
+        The neighbours_for_lagrangian_reigons option allows you to perform a neighbour
+        search around every particle in turn, and then set the lagrangian region of
+        your own particle to the lowest one among that many neighbours. This allows you
+        to "fill out" the lagrangian regions. Note that this is done independently for
+        every particle otherwise we would fill the majority of the box with a
+        low-numbered lagrangian region.
         """
 
         # Allocate our final output array
@@ -95,7 +121,23 @@ class DMParticles(object):
 
         halos.put(flattened_particles, flattened_halos)
 
-        return halos
+        # If necessary, overwrite where we need to cut
+        if cut_halos_above_id is not None:
+            halos[halos > cut_halos_above_id] = -1
+
+        if neighbours_for_lagrangian_regions == 1:
+            lagrangian_regions = halos.copy()
+        else:
+            # We must perform the neighbour search. Fill the tree!
+            print("Building tree for LR smoothing")
+            tree = KDTree(self.coordinates)
+
+            _, neighbours_for_all_particles = tree.query(
+                x=self.coordinates, k=neighbours_for_lagrangian_regions, n_jobs=-1
+            )
+            lagrangian_regions = halos[neighbours_for_all_particles].max(axis=1)
+
+        return halos, lagrangian_regions
 
     def read_array(self, name: str):
         """
@@ -115,6 +157,7 @@ class DMParticles(object):
 
         try:
             self.halos = self.halos[indicies]
+            self.lagrangian_regions = self.lagrangian_regions[indicies]
         except AttributeError:
             # We must not have any halos. Oh well.
             pass
@@ -139,6 +182,7 @@ class BaryonicParticles(object):
         bh_particles,
         halo_catalogue=None,
         truncate_ids=None,
+        cut_halos_above_id=None,
     ):
         """
         Takes the particles in PatyType[x] (the reference to it from h5py) and
@@ -147,6 +191,8 @@ class BaryonicParticles(object):
         truncate_ids should be an integer above which the ParticleIDs are all
         truncated. This is helpful as in some simulation codes (e.g. Mufasa)
         star-forming particles have their higher-up bits played with.
+
+        For cut_halos_above_id see the documentation in DMParticles.
         """
 
         self.gas_particles = gas_particles
@@ -185,11 +231,11 @@ class BaryonicParticles(object):
             self.bh_coordinates = np.array([[] * 3])
 
         if halo_catalogue is not None:
-            self.gas_halos, self.star_halos, self.bh_halos = (
-                self.get_all_particle_references()
+            self.gas_halos, self.star_halos, self.bh_halos = self.get_all_particle_references(
+                cut_halos_above_id
             )
 
-        self.gas_lagrangian_regions = None
+            self.gas_lagrangian_regions = None
         self.star_lagrangian_regions = None
 
         # This function sorts by ID to make matching easier.
@@ -241,7 +287,7 @@ class BaryonicParticles(object):
 
         return
 
-    def get_all_particle_references(self):
+    def get_all_particle_references(self, cut_halos_above_id=None):
         """
         Gets three nparticle long array that denotes which halo all of the
         particles belongs to. Particles that do not reside in halos have their
@@ -295,6 +341,11 @@ class BaryonicParticles(object):
         # Now for BHs
         # This is not currently implemented
         bh_halos = None
+
+        # Now cut out the halos that we don't want
+        if cut_halos_above_id is not None:
+            gas_halos[gas_halos > cut_halos_above_id] = -1
+            star_halos[star_halos > cut_halos_above_id] = -1
 
         return gas_halos, star_halos, bh_halos
 
@@ -405,15 +456,15 @@ class BaryonicParticles(object):
                     gas_current_index, len(gas_lagrangian_regions)
                 )
             )
-        if not touched_last_star:
-            print("Not parsed all star particles. Results might be wrong.")
+            if not touched_last_star:
+                print("Not parsed all star particles. Results might be wrong.")
             print(
                 "Got to index {}/{}".format(
                     star_current_index, len(star_lagrangian_regions)
                 )
             )
 
-        self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
+            self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
         self.star_lagrangian_regions = star_lagrangian_regions.astype(int)
 
         return
@@ -431,6 +482,8 @@ class Snapshot(object):
         catalogue_filename=None,
         truncate_ids=None,
         load_using_yt=False,
+        neighbours_for_lagrangian_regions=1,
+        cut_halos_above_id=None,
     ):
         """
         Opens the data and stuffs the information into the appropriate
@@ -446,6 +499,9 @@ class Snapshot(object):
         If load_using_yt is truthy, the data will be loaded via yt, rather
         than directly through H5py. Only use this if absolutely necessary,
         as it can be quite slow.
+
+        For neighbours_for_lagrangian_regions and cut_halos_above_id see
+        the documentation in DMParticles.
         """
 
         self.snapshot_filename = snapshot_filename
@@ -485,7 +541,12 @@ class Snapshot(object):
 
         # The rest of this should be the same now that we have massaged the
         # yt data into fitting with the Gadget snapshot
-        self.dark_matter = DMParticles(particle_data["PartType1"], self.halo_catalogue)
+        self.dark_matter = DMParticles(
+            particle_data["PartType1"],
+            self.halo_catalogue,
+            neighbours_for_lagrangian_regions=neighbours_for_lagrangian_regions,
+            cut_halos_above_id=cut_halos_above_id,
+        )
 
         try:
             self.baryonic_matter = BaryonicParticles(
@@ -494,6 +555,7 @@ class Snapshot(object):
                 particle_data["PartType5"],
                 self.halo_catalogue,
                 truncate_ids=truncate_ids,
+                cut_halos_above_id=cut_halos_above_id,
             )
         except KeyError:
             self.baryonic_matter = BaryonicParticles(
@@ -502,9 +564,10 @@ class Snapshot(object):
                 np.array([]),
                 self.halo_catalogue,
                 truncate_ids=truncate_ids,
+                cut_halos_above_id=cut_halos_above_id,
             )
 
-        return
+            return
 
     def read_data_from_yt(self, yt_data):
         """
@@ -572,7 +635,7 @@ class Simulation(object):
     def identify_lagrangian_regions(self):
         """
         Identifies the lagrangian regions based on the given snapshots.
-        
+
         This performs a nearest-neighbour search after building a kd-tree
         so may take some time.
 
@@ -601,7 +664,7 @@ class Simulation(object):
             self.snapshot_end.dark_matter.ids[-1]
             == self.snapshot_ini.dark_matter.ids[-1]
         )
-        self.lagrangian_regions = self.snapshot_end.dark_matter.halos[ids]
+        self.lagrangian_regions = self.snapshot_end.dark_matter.lagrangian_regions[ids]
 
         # This could cause problems if we ever have stars in the ICs
         self.snapshot_end.baryonic_matter.parse_lagrangian_regions(
@@ -761,7 +824,9 @@ class Simulation(object):
 
         for group_id, lagrangian_region, mass in zip(
             tqdm(self.snapshot_end.dark_matter.halos, desc="Analysing DM"),
-            self.snapshot_end.dark_matter.halos,  # By definition they are the same.
+            # Note LR is _not_ the same! This is because we can extend our
+            # definition of LR.
+            self.snapshot_end.dark_matter.lagrangian_regions,
             self.snapshot_end.dark_matter.masses,
         ):
             # First, add on the halo mass
