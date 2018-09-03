@@ -235,7 +235,7 @@ class BaryonicParticles(object):
                 cut_halos_above_id
             )
 
-            self.gas_lagrangian_regions = None
+        self.gas_lagrangian_regions = None
         self.star_lagrangian_regions = None
 
         # This function sorts by ID to make matching easier.
