@@ -262,13 +262,19 @@ def create_new_halo_catalogue(
     halos = []
 
     for halo, (center, radius) in enumerate(zip(centers, radii)):
-        dmlist = dm_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+        dmlist = np.array(
+            dm_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+        )
         if gas_tree is not None:
-            glist = gas_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+            glist = np.array(
+                gas_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+            )
         else:
             glist = np.array([])
         if star_tree is not None:
-            slist = star_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+            slist = np.array(
+                star_tree.query_ball_point(x=center, r=radius, n_jobs=n_threads)
+            )
         else:
             slist = np.array([])
 
