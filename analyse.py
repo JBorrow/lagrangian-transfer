@@ -137,7 +137,7 @@ if __name__ == "__main__":
     use_yt = bool(int(ARGS["yt"]))
     other_halo_finder = bool(int(ARGS["otherhalofinder"]))
     lagrangian_regions = int(ARGS["lagrangianregions"])
-    if ARGS["aboveid"] is not None:
+    if ARGS["aboveid"] is None:
         above_id = None
     else:
         above_id = int(ARGS["aboveid"])
