@@ -209,6 +209,32 @@ used for running the full analysis on how to use this feature also (a truthy
 value passed to `-y` should do the trick). 
 
 
+Halo Definitions & Smoothing Lagrangian Regions
+-----------------------------------------------
+
+`ltcaesar` comes with built-in support for ignoring halos below a certain mass.
+It assumes that your halos are sorted by mass, and so this is implemented by ignoring
+(i.e. setting the Halo ID of) halos above a given ID. You can do this by passing
+`-a <Halo ID>` to the `analyse.py` script, or by passing `cut_halos_above_id` to
+the `Snapshot` of your choice.
+
+To smooth lagrangian regions, we implement the following algorithm.
+
+1. For every dark matter particle, find it's nearest `n` neighbours in the initial
+   conditions.
+2. Set the lagrangian region ID for that particle to the _highest_ Halo ID present
+   in it's neighbours (this ensures that 'holes' containing small halos are still
+   present).
+3. Repeat the usual single-neighbour process for the gas particles.
+
+This enables lagrangian regions to be smoothed on the scale of `n` neighbours and
+allows any 'holes' present in the regions to be filled.
+
+You can perform this smoothing by passing `-l <neighbours>` to the `analyse.py`
+script or by passing `neighbours_for_lagrangian_regions` to your `Snapshot`
+object.
+
+
 Troubleshooting
 ---------------
 
