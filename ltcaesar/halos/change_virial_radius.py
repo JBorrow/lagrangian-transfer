@@ -2,10 +2,11 @@
 Contains a helper function that changes the virial radius of the halos
 to include more particles.
 
-TODO: Actually write documentation
-
 Note that we do things in "top-down" fashion; largest halos get their
 stuff re-assigned first so that smaller halos can "steal" from them.
+
+The most important funciton in this file is create_new_halo_catalogue.
+Check the documentation for that for how to run this analysis.
 """
 
 import numpy as np
@@ -200,7 +201,7 @@ def change_virial_radius(
 def create_new_halo_catalogue(
     snapshot,
     factor: float,
-    n_threads=16,
+    n_threads=-1,
     boxsize=None,
     unsort_dm=None,
     unsort_gas=None,
@@ -209,6 +210,10 @@ def create_new_halo_catalogue(
     """
     Takes a snapshot object, and uses the information in it to re-create a
     halo catalogue with the virial radius increased by "factor".
+
+    Ensure that if you are using a periodic box that boxsize is passed;
+    otherwise this fucntion will not correctly find halos and you will end
+    up with all of your particles in a single halo.
 
     The unsort arrays are required if your data has been sorted w.r.t. the
     way that it will be read in. These are essentially the inverse of the
