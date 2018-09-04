@@ -187,15 +187,23 @@ data = ltcaesar.read_data_from_file(...)
 new_catalogue = ltcaesar.halos.create_new_halo_catalogue(
     snapshot=data.snapshot_end,
     factor=1.2 # Finds particles within 1.2 R_vir
-    nthreads=16
+    n_threads=16,
+    boxsize=boxsize, # Required for periodic boxes!
+    unsort_dm=unsort_dm,
+    unsort_gas=unsort_gas,
+    unsort_star=unsort_star
 )
 ```
 
-You can then re-run the analysis using that in-memory catalogue or write it to
-disk. This analysis takes a _very long time_, around 4 hours using 16 threads
-for a 512^3 simulation. It also has some memory issues, so watch out. You may need
-to reduce the number of threads that it uses.
+This transformation requires the `unsort_*` arrays because it needs to place the
+new halo IDs in the same order as the particles are read from file (not in their
+sorted ID order). You can recover these arrays by using the following code:
 
+```python
+unsort_dm = np.searchsorted(data.snapshot_end.dark_matter.ids, dm_ids)
+```
+
+where `dm_ids` are the IDs read from the original snapshot.
 
 Difficult Snapshots
 -------------------
