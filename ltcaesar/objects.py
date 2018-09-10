@@ -109,17 +109,8 @@ class DMParticles(object):
         halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
-        particles_in_halos = [halo.dmlist for halo in self.halo_catalogue.halos]
-        copied_halos = [
-            np.repeat(halo.GroupID, halo.ndm) for halo in self.halo_catalogue.halos
-        ]
-
-        flattened_particles = np.concatenate(particles_in_halos)
-        del particles_in_halos
-        flattened_halos = np.concatenate(copied_halos)
-        del copied_halos
-
-        halos.put(flattened_particles, flattened_halos)
+        for halo in self.halo_catalogue.halos:
+            halos[halo.dmlist] = halo.GroupID
 
         # If necessary, overwrite where we need to cut
         if cut_halos_above_id is not None:
@@ -132,10 +123,21 @@ class DMParticles(object):
             print("Building tree for LR smoothing")
             tree = KDTree(self.coordinates)
 
+            # We only want to actively change the lagrangian region
+            # ID of a particle that is outside of any LR already.
+            outside_of_lr_mask = halos == -1
+            coordinates_to_consider = self.coordinates[
+                outside_of_lr_mask
+            ]
+
             _, neighbours_for_all_particles = tree.query(
-                x=self.coordinates, k=neighbours_for_lagrangian_regions, n_jobs=-1
+                x=coordinates_to_consider, k=neighbours_for_lagrangian_regions, n_jobs=-1
             )
-            lagrangian_regions = halos[neighbours_for_all_particles].max(axis=1)
+
+            # Find the updates
+            diff_between_lr_and_halos = halos[neighbours_for_all_particles].max(axis=1)
+            lagrangian_regions = halos.copy()
+            lagrangian_regions[outside_of_lr_mask] = diff_between_lr_and_halos
 
         return halos, lagrangian_regions
 
@@ -301,42 +303,16 @@ class BaryonicParticles(object):
         gas_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
-        particles_in_halos = [galaxy.glist for galaxy in self.halo_catalogue.halos]
-        copied_halos = [
-            np.repeat(galaxy.GroupID, galaxy.ngas)
-            for galaxy in self.halo_catalogue.halos
-        ]
-
-        flattened_particles = np.concatenate(particles_in_halos)
-        del particles_in_halos
-        flattened_halos = np.concatenate(copied_halos)
-        del copied_halos
-
-        gas_halos.put(flattened_particles, flattened_halos)
-
-        del flattened_particles
-        del flattened_halos
+        for halo in self.halo_catalogue.halos:
+            gas_halos[halo.glist] = halo.GroupID
 
         # Now for stars
         star_halos = np.empty(self.n_star_parts, dtype=int)
         star_halos[...] = -1  # Default value for all particles _not_ in halos
 
         # Grab all references
-        particles_in_halos = [galaxy.slist for galaxy in self.halo_catalogue.halos]
-        copied_halos = [
-            np.repeat(galaxy.GroupID, galaxy.nstar)
-            for galaxy in self.halo_catalogue.halos
-        ]
-
-        flattened_particles = np.concatenate(particles_in_halos)
-        del particles_in_halos
-        flattened_halos = np.concatenate(copied_halos)
-        del copied_halos
-
-        star_halos.put(flattened_particles, flattened_halos)
-
-        del flattened_particles
-        del flattened_halos
+        for halo in self.halo_catalogue.halos:
+            star_halos[halo.slist] = halo.GroupID
 
         # Now for BHs
         # This is not currently implemented
