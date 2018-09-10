@@ -343,9 +343,6 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
         # We're done!
 
         assert (final_radii <= boxsize).all()
-        assert final_index == len(final_radii), "Current Index: {}, length: {}".format(
-            current_index, len(final_radii)
-        )
 
         return final_radii, final_neighbour_indicies
 
