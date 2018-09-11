@@ -54,7 +54,12 @@ def change_rvir_of_lagrangian_regions_only(simulation, factor=1.2):
     simulation.snapshot_end.dark_matter.lagrangian_regions = new_lagrangian_regions
 
     # Re-identify the lagrangian regions using the original code
-    simulation.snapshot_end.identify_lagrangian_regions()
+    simulation.identify_lagrangian_regions()
+
+    # Now we have to re-run all of the analysis
+    simulation.run_gas_analysis()
+    simulation.run_star_analysis()
+    simulation.run_dark_matter_analysis()
 
     # Return the now changed object
     return simulation
