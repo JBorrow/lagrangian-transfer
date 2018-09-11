@@ -8,6 +8,7 @@ from ltcaesar.halos import (
     change_virial_radius,
     find_particles_in_halo,
     create_new_halo_catalogue,
+    change_rvir_of_lagrangian_regions_only,
 )
 
 import numpy as np
@@ -206,10 +207,7 @@ def test_coorect_overlap(contamination=0.01, make_plot=False):
     # Fake data generation
     particles = np.random.rand(300000).reshape((100000, 3))
     halo_radiis = [0.3, 0.1]
-    halo_centers = [
-        np.array([0.5, 0.5, 0.5]),
-        np.array([0.4, 0.5, 0.5]),
-    ]
+    halo_centers = [np.array([0.5, 0.5, 0.5]), np.array([0.4, 0.5, 0.5])]
     halos = np.empty(100000, dtype=int)
     halos[...] = -1
     expected_indicies = []
@@ -242,7 +240,7 @@ def test_coorect_overlap(contamination=0.01, make_plot=False):
 
     if make_plot:
         import matplotlib.pyplot as plt
-        
+
         fig, ax = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(12, 6))
         ax[0].set_xlim(0, 1)
         ax[0].set_ylim(0, 1)
@@ -267,3 +265,46 @@ def test_coorect_overlap(contamination=0.01, make_plot=False):
         total = len(indicies)
 
         assert diff / total < contamination
+
+
+def test_change_virial_radius_lr_only(contamination=0.01):
+    """
+    Tests to see if the change_virial_radius function actually recovers the
+    original solution.
+    """
+
+    particles = np.random.rand(3000).reshape((1000, 3))
+    halo_radius = 0.2
+    halo_center = np.array([0.5, 0.5, 0.5])
+
+    dx = particles - halo_center
+    r = np.sqrt(np.sum(dx * dx, axis=1))
+
+    halos = np.empty(1000, dtype=int)
+    halos[r <= halo_radius] = 0
+    halos[r > halo_radius] = -1
+
+    lagrangian_regions = np.empty(1000, dtype=int)
+    lagrangian_regions[r <= halo_radius * 1.2] = 0
+    lagrangian_regions[r > halo_radius * 1.2] = -1
+
+    simulation = mock.MagicMock()
+    simulation.snapshot_end.header = {"BoxSize": 1}
+    simulation.snapshot_end.dark_matter.halos = halos
+    simulation.snapshot_end.dark_matter.coordinates = particles
+    simulation.snapshot_end.baryonic_matter.gas_halos = np.array([])
+    simulation.snapshot_end.baryonic_matter.star_halos = np.array([])
+    simulation.snapshot_end.baryonic_matter.gas_coordinates = np.array([])
+    simulation.snapshot_end.baryonic_matter.star_coordinates = np.array([])
+
+    change_rvir_of_lagrangian_regions_only(simulation)
+
+    assert (
+        sum(
+            abs(
+                lagrangian_regions
+                - simulation.snapshot_end.dark_matter.lagrangian_regions
+            )
+        )
+        / len(lagrangian_regions)
+    ) < contamination

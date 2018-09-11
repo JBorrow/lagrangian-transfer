@@ -440,7 +440,8 @@ class BaryonicParticles(object):
                 )
             )
 
-            self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
+        # Now we can set these
+        self.gas_lagrangian_regions = gas_lagrangian_regions.astype(int)
         self.star_lagrangian_regions = star_lagrangian_regions.astype(int)
 
         return
