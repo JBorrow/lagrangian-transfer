@@ -126,6 +126,19 @@ PARSER.add_argument(
     default=None
 )
 
+PARSER.add_argument(
+    "-r",
+    "--virialradius",
+    help="""
+    Changes the radius within which particles in the final conditions are
+    considered to "belong" to the lagrangian region. This does not include
+    more particles within the _halo_, but does expand (and hence fill out)
+    the lagrangian region. Give this as a factor of virial radius.
+    """,
+    required=False,
+    default=None
+)
+
 
 if __name__ == "__main__":
     ARGS = vars(PARSER.parse_args())
@@ -141,6 +154,10 @@ if __name__ == "__main__":
         above_id = None
     else:
         above_id = int(ARGS["aboveid"])
+    if ARGS["virialradius"] is None:
+        virial_radius = 1.0
+    else:
+        virial_radius = float(ARGS["virialradius"])
 
     # Print a summary of code options chosen.
 
@@ -153,7 +170,8 @@ if __name__ == "__main__":
         "\t Use yt to load data: {}\n".format(use_yt),
         "\t Use another halo finder: {}\n".format(other_halo_finder),
         "\t Smoothing LRs with a neighbour search of {} neighbours\n".format(lagrangian_regions),
-        "\t Cutting halos above ID: {}.".format(above_id)
+        "\t Cutting halos above ID: {}\n".format(above_id),
+        "\t Radius around halo centre to include in lagrangian region: {}.".format(virial_radius)
     )
 
     # Change out the caesar filename for the FakeCaesar catalogue data
@@ -200,6 +218,13 @@ if __name__ == "__main__":
     print("Running the simulation class")
     simulation = lt.Simulation(simulation_ini, simulation_end)
 
+    # Okay, we need to (if asked) now change the "virial radius" of the
+    # lagrangian regions.
+    if virial_radius != 1.0:
+        print("Changing radius of inclusion in lagrangian regions")
+        lt.halos.change_rvir_of_lagrangian_regions_only(simulation, factor=virial_radius)
+
+    # Now we can actually run the analysis
     simulation.prepare_analysis_arrays()
     print("Running gas analysis")
     simulation.run_gas_analysis()

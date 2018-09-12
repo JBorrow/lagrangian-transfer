@@ -56,10 +56,5 @@ def change_rvir_of_lagrangian_regions_only(simulation, factor=1.2):
     # Re-identify the lagrangian regions using the original code
     simulation.identify_lagrangian_regions()
 
-    # Now we have to re-run all of the analysis
-    simulation.run_gas_analysis()
-    simulation.run_star_analysis()
-    simulation.run_dark_matter_analysis()
-
     # Return the now changed object
     return simulation
