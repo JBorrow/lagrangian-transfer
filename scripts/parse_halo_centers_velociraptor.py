@@ -1,13 +1,14 @@
 """
-This file parses the halo centers and virial radii to a FakeCaesar halo catalogue,
-given that these halo centers and virial radii are presented in the same format
-as AHF. If not, you can use this script as a guide on how to do that yourself.
+This file parses the halo centers and virial radii to a FakeCaesar halo
+catalogue, given that these halo centers and virial radii are presented in
+the same format as velociraptor. If not, you can use this script as a guide
+on how to do that yourself.
 
 Please invoke it as follows
 
-python3 parse_halo_centers.py <name of HDF5 particle file> \
-                              <name of .halos file from AHF> \
-                              <output filename.pickle>
+python3 parse_halo_centers_velociraptor.py <name of HDF5 particle file> \
+                                           <name of .propertties file from VR> \
+                                           <output filename.pickle>
 """
 
 import numpy as np
@@ -25,13 +26,17 @@ output_filename = sys.argv[2]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
-with np.loadtxt(halos_filename, delimiter=",", skiprows=1, usecols=(0, 1, 5, 7, 8, 12)).T as data:
-    host_halos_mask = (data[1].astype(int) == -1)
-    
-    centers = data[2:5][host_halos_mask]
-    radii = data[5][host_halos_mask]
-    
-    # We want continuous IDs forget about the ones in the file
+with h5py.File(halos_filename) as data:
+    centers = np.array(
+        [
+            data["Xc"][...],
+            data["Yc"][...],
+            data["Zc"][...]
+        ]
+    )
+
+    radii = data["Rvir"][...]
+
     ids = np.arange(0, len(radii))
 
 # Read in particle co-ordinates only so that we can match them
