@@ -274,6 +274,7 @@ def run_analysis_on_mass_bin(
     radial_bins,
     ptype="gas",
     conversion=1e10 / 0.7,
+    bin_func=mass_fraction
 ):
     """
     Run the analysis on an individual halo mass bin.
@@ -295,7 +296,7 @@ def run_analysis_on_mass_bin(
     for halo in tqdm(halos):
         try:
             individual_analyis, individual_analysis_used = run_analysis_on_individual_halo(
-                simulation, halo, radial_bins, ptype
+                simulation, halo, radial_bins, ptype, bin_func=bin_func
             )
 
             if np.sum(individual_analyis) == 0.0:
