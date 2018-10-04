@@ -342,8 +342,6 @@ def find_distances_to_nearest_neighbours_data(sim: Simulation, particle_type="ga
         final_radii = np.sqrt(np.sum(final_dx * final_dx, axis=1))
         # We're done!
 
-        assert (final_radii <= boxsize).all()
-
         return final_radii, final_neighbour_indicies
 
     # Select out the relevant properties and run
