@@ -126,12 +126,12 @@ class DMParticles(object):
             # We only want to actively change the lagrangian region
             # ID of a particle that is outside of any LR already.
             outside_of_lr_mask = halos == -1
-            coordinates_to_consider = self.coordinates[
-                outside_of_lr_mask
-            ]
+            coordinates_to_consider = self.coordinates[outside_of_lr_mask]
 
             _, neighbours_for_all_particles = tree.query(
-                x=coordinates_to_consider, k=neighbours_for_lagrangian_regions, n_jobs=-1
+                x=coordinates_to_consider,
+                k=neighbours_for_lagrangian_regions,
+                n_jobs=-1,
             )
 
             # Find the updates
@@ -293,7 +293,23 @@ class BaryonicParticles(object):
         self.star_coordinates = self.star_coordinates[star_indicies]
         self.bh_coordinates = self.bh_coordinates[bh_indicies]
 
+        # In case we need to sort anything later.
+        self.gas_indicies = gas_indicies
+        self.star_indicies = star_indicies
+        self.bh_indicies = bh_indicies
+
         return
+
+    def read_extra_array(self, name: str, ptype: str) -> np.array:
+        """
+        Reads an extra array from the HDF5 file and returns it, sorted
+        by particle ID.
+        """
+
+        data = getattr(self, f"{ptype}_particles")
+        indicies = getattr(self, f"{ptype}_indicies")
+
+        return data[name][indicies]
 
     def get_all_particle_references(self, cut_halos_above_id=None):
         """
@@ -360,10 +376,10 @@ class BaryonicParticles(object):
             else:
                 # It's dark matter only time
                 print("Detected Dark Matter Only in parse_lagrangian_regions")
-                
+
                 self.gas_lagrangian_regions = np.array([])
                 self.star_lagrangian_regions = np.array([])
-                
+
                 return
 
         try:
@@ -678,7 +694,9 @@ class Simulation(object):
         )
 
         try:
-            self.lagrangian_regions = self.snapshot_end.dark_matter.lagrangian_regions[ids]
+            self.lagrangian_regions = self.snapshot_end.dark_matter.lagrangian_regions[
+                ids
+            ]
         except IndexError:
             # Again, DM only
             self.lagrangian_regions = np.array([])
