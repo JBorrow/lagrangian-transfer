@@ -20,9 +20,9 @@ from scipy.spatial import cKDTree as KDTree
 
 import ltcaesar as lt
 
-particle_filename = sys.argv[0]
-halos_filename = sys.argv[1]
-output_filename = sys.argv[2]
+particle_filename = sys.argv[1]
+halos_filename = sys.argv[2]
+output_filename = sys.argv[3]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
@@ -33,7 +33,7 @@ with h5py.File(halos_filename) as data:
             data["Yc"][...],
             data["Zc"][...]
         ]
-    )
+    ).T
 
     radii = data["Rvir"][...]
 
@@ -42,17 +42,29 @@ with h5py.File(halos_filename) as data:
 # Read in particle co-ordinates only so that we can match them
 print("Loading particle data")
 with h5py.File(particle_filename, "r") as particles:
-    gas_coordinates = particles["PartType0/Coordinates"][...]
+    try:
+        gas_coordinates = particles["PartType0/Coordinates"][...]
+    except:
+        gas_coordinates = None
     dm_coordinates = particles["PartType1/Coordinates"][...]
-    star_coordinates = particles["PartType4/Coordinates"][...]
+    try:
+        star_coordinates = particles["PartType4/Coordinates"][...]
+    except:
+        star_coordinates = None
 
     boxsize = particles["Header"].attrs["BoxSize"]
 
 # Now we need to build the trees for the neigbour search
 print("Building KDTrees for periodic particle search")
-gas_tree = KDTree(gas_coordinates, boxsize=boxsize)
+try:
+    gas_tree = KDTree(gas_coordinates, boxsize=boxsize)
+except:
+    gas_tree = None
 dm_tree = KDTree(dm_coordinates, boxsize=boxsize)
-star_tree = KDTree(gas_coordinates, boxsize=boxsize)
+try:
+    star_tree = KDTree(star_coordinates, boxsize=boxsize)
+except:
+    star_tree = None
 
 # Now we can run through each of the halos and do our job
 halos = []
@@ -62,12 +74,20 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
     dmlist = np.array(
         dm_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
     )
-    glist = np.array(
-        gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
-    )
-    slist = np.array(
-        star_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
-    )
+
+    try:
+        glist = np.array(
+            gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
+        )
+    except:
+        glist = np.array([])
+
+    try:
+        slist = np.array(
+            star_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
+        )
+    except:
+        slist = np.array([])
 
     halos.append(
         lt.halos.FakeHalo(
@@ -84,7 +104,7 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
 halo_catalogue = lt.FakeCaesar(halos=halos, nhalos=len(halos))
 
 print("Writing to pickle file")
-with open(output_filename, "rb") as file_handle:
+with open(output_filename, "wb") as file_handle:
     pickle.dump(halo_catalogue, file_handle)
 
 exit(0)
