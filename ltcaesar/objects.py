@@ -204,10 +204,16 @@ class BaryonicParticles(object):
         self.truncate_ids = truncate_ids
 
         # Now we read a bunch of particle properties.
-        self.n_gas_parts = len(gas_particles["ParticleIDs"])
-        self.gas_ids = self.gas_particles["ParticleIDs"][...]
-        self.gas_masses = self.gas_particles["Masses"][...]
-        self.gas_coordinates = self.gas_particles["Coordinates"][...]
+        try:
+            self.n_gas_parts = len(gas_particles["ParticleIDs"])
+            self.gas_ids = self.gas_particles["ParticleIDs"][...]
+            self.gas_masses = self.gas_particles["Masses"][...]
+            self.gas_coordinates = self.gas_particles["Coordinates"][...]
+        except IndexError:
+            self.n_gas_parts = 0
+            self.gas_ids = np.array([])
+            self.gas_masses = np.array([])
+            self.gas_coordinates = np.array([])
 
         # Try to load stars and BHs -- but they might not be there (ics)!
         try:
@@ -298,6 +304,10 @@ class BaryonicParticles(object):
         Yes, this function breaks DRY, but that's for memory efficiency.
         """
 
+        if self.n_gas_parts == 0 and self.n_star_parts == 0:
+            # Dark matter only run!
+            return np.array([]), np.array([]), np.array([])
+
         # Allocate our final output array
         gas_halos = np.empty(self.n_gas_parts, dtype=int)
         gas_halos[...] = -1  # Default value for all particles _not_ in halos
@@ -345,7 +355,16 @@ class BaryonicParticles(object):
         try:
             gas_current_id = self.gas_ids[gas_current_index]
         except IndexError:
-            raise IndexError("lagtranscaesar: Unable to index the gas ID array.")
+            if self.n_gas_parts:
+                raise IndexError("lagtranscaesar: Unable to index the gas ID array.")
+            else:
+                # It's dark matter only time
+                print("Detected Dark Matter Only in parse_lagrangian_regions")
+                
+                self.gas_lagrangian_regions = np.array([])
+                self.star_lagrangian_regions = np.array([])
+                
+                return
 
         try:
             star_current_id = self.star_ids[star_current_index]
@@ -535,14 +554,26 @@ class Snapshot(object):
                 cut_halos_above_id=cut_halos_above_id,
             )
         except KeyError:
-            self.baryonic_matter = BaryonicParticles(
-                particle_data["PartType0"],
-                np.array([]),
-                np.array([]),
-                self.halo_catalogue,
-                truncate_ids=truncate_ids,
-                cut_halos_above_id=cut_halos_above_id,
-            )
+            try:
+                # Probably IC's, let's try without stars and BHs
+                self.baryonic_matter = BaryonicParticles(
+                    particle_data["PartType0"],
+                    np.array([]),
+                    np.array([]),
+                    self.halo_catalogue,
+                    truncate_ids=truncate_ids,
+                    cut_halos_above_id=cut_halos_above_id,
+                )
+            except KeyError:
+                # Must be a DM only run
+                self.baryonic_matter = BaryonicParticles(
+                    np.array([]),
+                    np.array([]),
+                    np.array([]),
+                    self.halo_catalogue,
+                    truncate_ids=truncate_ids,
+                    cut_halos_above_id=cut_halos_above_id,
+                )
 
             return
 
@@ -627,9 +658,13 @@ class Simulation(object):
         # This returns the index of the Dark Matter particle that belongs to
         # the relevant z=0 group.
         print("Querying tree")
-        _, ids = tree.query(
-            self.snapshot_ini.baryonic_matter.gas_coordinates, k=1, n_jobs=-1
-        )
+        try:
+            _, ids = tree.query(
+                self.snapshot_ini.baryonic_matter.gas_coordinates, k=1, n_jobs=-1
+            )
+        except ValueError:
+            # Dark matter only
+            ids = np.array([])
         print("Finished querying tree")
 
         # This requires the data to be sorted by ParticleID.
@@ -641,7 +676,12 @@ class Simulation(object):
             self.snapshot_end.dark_matter.ids[-1]
             == self.snapshot_ini.dark_matter.ids[-1]
         )
-        self.lagrangian_regions = self.snapshot_end.dark_matter.lagrangian_regions[ids]
+
+        try:
+            self.lagrangian_regions = self.snapshot_end.dark_matter.lagrangian_regions[ids]
+        except IndexError:
+            # Again, DM only
+            self.lagrangian_regions = np.array([])
 
         # This could cause problems if we ever have stars in the ICs
         self.snapshot_end.baryonic_matter.parse_lagrangian_regions(
