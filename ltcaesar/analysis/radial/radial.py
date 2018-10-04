@@ -34,6 +34,7 @@ import numpy as np
 
 from typing import Tuple
 from tqdm import tqdm
+from functools import lru_cache
 
 from ltcaesar.objects import Simulation
 
@@ -109,6 +110,7 @@ def get_radii_to_halo_center(coordinates: np.ndarray) -> np.array:
     return radii
 
 
+@lru_cache(maxsize=64)
 def get_relevant_baryonic_quantities(
     halo, simulation: Simulation, ptype="gas"
 ) -> Tuple[np.ndarray]:
@@ -137,6 +139,7 @@ def get_relevant_baryonic_quantities(
     return radii, masses, lagrangian_regions, halos
 
 
+@lru_cache(maxsize=64)
 def get_extra_bayryonic_quantity(
     halo, simulation: Simulation, quantity: str, ptype="gas"
 ) -> np.npdarray:
