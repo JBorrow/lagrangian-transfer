@@ -142,7 +142,7 @@ def get_relevant_baryonic_quantities(
 @lru_cache(maxsize=64)
 def get_extra_bayryonic_quantity(
     halo, simulation: Simulation, quantity: str, ptype="gas"
-) -> np.npdarray:
+) -> np.ndarray:
     """
     Extracts any extra quantity you may wish to use, and indexes it
     for the halo in a similar way for get_relevant_baryonic_quantities.
