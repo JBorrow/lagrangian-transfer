@@ -140,7 +140,7 @@ def get_relevant_baryonic_quantities(
 
 
 @lru_cache(maxsize=64)
-def get_extra_bayryonic_quantity(
+def get_extra_baryonic_quantity(
     halo, simulation: Simulation, quantity: str, ptype="gas"
 ) -> np.ndarray:
     """
@@ -151,7 +151,7 @@ def get_extra_bayryonic_quantity(
     gas_mask, star_mask, dark_matter_mask = get_masks(halo, simulation)
     mask = locals()[f"{ptype}_mask"]
 
-    return simulation.baryonic_matter.read_extra_array(quantity, ptype)[mask]
+    return simulation.snapshot_end.baryonic_matter.read_extra_array(quantity, ptype)[mask]
 
 
 def find_halos_in_bin(
