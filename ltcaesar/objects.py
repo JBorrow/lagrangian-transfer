@@ -309,7 +309,7 @@ class BaryonicParticles(object):
         data = getattr(self, f"{ptype}_particles")
         indicies = getattr(self, f"{ptype}_indicies")
 
-        return data[name][indicies]
+        return data[name][...][indicies]
 
     def get_all_particle_references(self, cut_halos_above_id=None):
         """
