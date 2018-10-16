@@ -75,19 +75,22 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
         dm_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
     )
 
+    if dmlist.size == 0:
+        continue
+
     try:
         glist = np.array(
             gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
         )
     except:
-        glist = np.array([])
+        glist = np.array([], dtype=int)
 
     try:
         slist = np.array(
             star_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
         )
     except:
-        slist = np.array([])
+        slist = np.array([], dtype=int)
 
     halos.append(
         lt.halos.FakeHalo(

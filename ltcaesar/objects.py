@@ -330,7 +330,11 @@ class BaryonicParticles(object):
 
         # Grab all references
         for halo in self.halo_catalogue.halos:
-            gas_halos[halo.glist] = halo.GroupID
+            try:
+                gas_halos[halo.glist] = halo.GroupID
+            except IndexError:
+                # No gas particles, we can just continue on
+                pass
 
         # Now for stars
         star_halos = np.empty(self.n_star_parts, dtype=int)
@@ -338,7 +342,11 @@ class BaryonicParticles(object):
 
         # Grab all references
         for halo in self.halo_catalogue.halos:
-            star_halos[halo.slist] = halo.GroupID
+            try:
+                star_halos[halo.slist] = halo.GroupID
+            except IndexError:
+                # No gas particles, we can just continue on
+                pass
 
         # Now for BHs
         # This is not currently implemented
