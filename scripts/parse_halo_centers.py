@@ -19,9 +19,9 @@ from scipy.spatial import cKDTree as KDTree
 
 import ltcaesar as lt
 
-particle_filename = sys.argv[0]
-halos_filename = sys.argv[1]
-output_filename = sys.argv[2]
+particle_filename = sys.argv[1]
+halos_filename = sys.argv[2]
+output_filename = sys.argv[3]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
