@@ -25,14 +25,14 @@ output_filename = sys.argv[3]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
-with np.loadtxt(halos_filename, delimiter=",", skiprows=1, usecols=(0, 1, 5, 7, 8, 12)).T as data:
-    host_halos_mask = (data[1].astype(int) == -1)
-    
-    centers = data[2:5][host_halos_mask]
-    radii = data[5][host_halos_mask]
-    
-    # We want continuous IDs forget about the ones in the file
-    ids = np.arange(0, len(radii))
+data = np.loadtxt(halos_filename, delimiter="\t", skiprows=1, usecols=(0, 1, 5, 7, 8, 12)).T 
+host_halos_mask = (data[1].astype(int) == -1)
+
+centers = (data[2:5].T[host_halos_mask]).T
+radii = data[5][host_halos_mask]
+
+# We want continuous IDs forget about the ones in the file
+ids = np.arange(0, len(radii))
 
 # Read in particle co-ordinates only so that we can match them
 print("Loading particle data")
