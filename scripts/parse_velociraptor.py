@@ -7,10 +7,8 @@ parse_velociraptor.py <AHF particles file> <HDF5 file> <output pickle file>
 import ltcaesar as lt
 import pickle
 import numpy as np
-import numpy_indexed as ni
 import h5py
 import sys
-import pandas as pd
 
 from tqdm import tqdm
 
@@ -21,50 +19,27 @@ output_filename = sys.argv[3]
 
 def read_particles(velociraptor_file, particle_file):
     """
-    Reads the particles from the AHF dataset and splits them into a more intelligable
-    structure, organised in a similar way to the ones that are stored alongside the
-    particles.
+    Reads the particles from the velociraptor dataset and splits them into a
+    more intelligable structure, organised in a similar way to the ones that
+    are stored alongside the particles.
+    
+    The big problem here is being able to match up the particle IDs with the
+    location in the array that they exist; we actually need to re-sort the
+    HaloID's such that they line up exactly.
 
-    The big problem here is being able to match up the particle IDs with the location
-    in the array that they exist; we actually need to re-sort the HaloID's such that
-    they line up exactly.
+    Note that you will have to pre-process the velociraptor data with the
+    scripts that are provided in
+
+    github.com/jborrow/simba-velociraptor-tools
     """
-
-    data = read_AHF_particles(AHF_file)
 
     switch = {"gas": 0, "dark_matter": 1, "stellar": 4}
 
-    ids = {}
-
-    with h5py.File(particle_file, "r") as handle:
-        for name, particle_type in switch.items():
-            full_particle_type = "PartType{}".format(particle_type)
-
-            this_id_list = handle[full_particle_type]["ParticleIDs"][...]
-
-            ids[name] = this_id_list
-
-    # Now we can prepare the output arrays.
     output_data = {}
 
-    for name, particle_type in switch.items():
-        mask = data["Ptype"] == particle_type
-
-        particle_ids = data["id"][mask]
-        halo_ids = data["HaloID"][mask]
-
-        # This finds the indicies where the two ID arrays match up
-        indicies = ni.indices(ids[name], particle_ids)
-        # We need to re-order the AHF data to be in the same order as
-        # the actual HDF5 data. We can do that by using these indicies
-        # as well as np.take.
-
-        cleaned_halo_data = np.zeros_like(ids[name]) - 1
-        cleaned_halo_data[indicies] = halo_ids
-
-        this_data = {"HaloID": cleaned_halo_data, "ParticleIDs": ids[name]}
-
-        output_data[name] = this_data
+    with h5py.File(velociraptor_file, "r") as file:
+        for number, name in switch.items():
+            output_data[name] = file[f"PartType{number}/GroupID"]
 
     return output_data
 
@@ -75,7 +50,7 @@ data = read_particles(input_filename, particle_filename)
 full_output = {}
 
 for particle_type in ["gas", "dark_matter", "stellar"]:
-    this_data = data[particle_type]["HaloID"]
+    this_data = data[particle_type]
 
     # We are going to index this dictionary with the halo data.
     # Note we need to store the current _index_ in the halo array, as there
