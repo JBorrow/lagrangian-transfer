@@ -39,7 +39,7 @@ def read_particles(velociraptor_file, particle_file):
 
     with h5py.File(velociraptor_file, "r") as file:
         for name, number in switch.items():
-            output_data[name] = file[f"PartType{number}/GroupID"]
+            output_data[name] = file[f"PartType{number}/GroupID"][...]
 
     return output_data
 
