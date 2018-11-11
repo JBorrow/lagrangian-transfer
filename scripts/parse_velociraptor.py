@@ -59,10 +59,11 @@ for particle_type in ["gas", "dark_matter", "stellar"]:
 
     # Main processing loop
     for index, halo_id in enumerate(tqdm(this_data)):
-        try:
-            this_output[halo_id].append(index)
-        except KeyError:
-            this_output[halo_id] = [index]
+        if halo_id != -1:
+            try:
+                this_output[halo_id].append(index)
+            except KeyError:
+                this_output[halo_id] = [index]
 
     full_output[particle_type] = this_output
 
