@@ -770,10 +770,12 @@ class Simulation(object):
         particles.
         """
 
-        for group_id, lagrangian_region, mass_ini, mass_end in zip(
+        # Let's assume that the mass of all gas particles is the same.
+        mass_ini = self.snapshot_ini.baryonic_matter.gas_masses[0]
+
+        for group_id, lagrangian_region, mass_end in zip(
             tqdm(self.snapshot_end.baryonic_matter.gas_halos, desc="Analysing gas"),
             self.snapshot_end.baryonic_matter.gas_lagrangian_regions,
-            self.snapshot_ini.baryonic_matter.gas_masses,
             self.snapshot_end.baryonic_matter.gas_masses,
         ):
             # First, add on the halo mass
@@ -825,6 +827,9 @@ class Simulation(object):
         Runs the analysis (stars) - this is just a linear pass through all of the
         particles.
         """
+
+        # Let's assume that the mass of all gas particles is the same.
+        mass_ini = self.snapshot_ini.baryonic_matter.gas_masses[0]
 
         for group_id, lagrangian_region, mass in zip(
             tqdm(self.snapshot_end.baryonic_matter.star_halos, desc="Analysing stars"),
@@ -909,7 +914,7 @@ class Simulation(object):
                     ] += mass
                     self.dark_matter_mass_in_other_halos_from_lagrangian[
                         lagrangian_region
-                    ] += mass_ini
+                    ] += mass
                 else:
                     # We must be new to the game!
                     self.dark_matter_mass_in_halo_from_outside_lagrangian[
@@ -949,7 +954,7 @@ class Simulation(object):
             "mass_in_halo_from_outside_lagrangian",
             "mass_in_halo_from_other_lagrangian",
             "mass_outside_halo_from_lagrangian",
-            "mass_in_other_halos_from_lagrangian"
+            "mass_in_other_halos_from_lagrangian",
         ]
 
         header = ",".join(attributes)
