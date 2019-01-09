@@ -19,20 +19,20 @@ from scipy.spatial import cKDTree as KDTree
 
 import ltcaesar as lt
 
-particle_filename = sys.argv[0]
-halos_filename = sys.argv[1]
-output_filename = sys.argv[2]
+particle_filename = sys.argv[1]
+halos_filename = sys.argv[2]
+output_filename = sys.argv[3]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
-with np.loadtxt(halos_filename, delimiter=",", skiprows=1, usecols=(0, 1, 5, 7, 8, 12)).T as data:
-    host_halos_mask = (data[1].astype(int) == -1)
-    
-    centers = data[2:5][host_halos_mask]
-    radii = data[5][host_halos_mask]
-    
-    # We want continuous IDs forget about the ones in the file
-    ids = np.arange(0, len(radii))
+data = np.loadtxt(halos_filename, delimiter="\t", skiprows=1, usecols=(0, 1, 5, 6, 7, 11)).T 
+host_halos_mask = (data[1].astype(int) == -1)
+
+centers = (data[2:5].T[host_halos_mask])
+radii = data[5][host_halos_mask]
+
+# We want continuous IDs forget about the ones in the file
+ids = np.arange(0, len(radii))
 
 # Read in particle co-ordinates only so that we can match them
 print("Loading particle data")
@@ -47,7 +47,7 @@ with h5py.File(particle_filename, "r") as particles:
 print("Building KDTrees for periodic particle search")
 gas_tree = KDTree(gas_coordinates, boxsize=boxsize)
 dm_tree = KDTree(dm_coordinates, boxsize=boxsize)
-star_tree = KDTree(gas_coordinates, boxsize=boxsize)
+star_tree = KDTree(star_coordinates, boxsize=boxsize)
 
 # Now we can run through each of the halos and do our job
 halos = []
@@ -79,7 +79,7 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
 halo_catalogue = lt.FakeCaesar(halos=halos, nhalos=len(halos))
 
 print("Writing to pickle file")
-with open(output_filename, "rb") as file_handle:
+with open(output_filename, "wb") as file_handle:
     pickle.dump(halo_catalogue, file_handle)
 
 exit(0)

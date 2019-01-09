@@ -43,6 +43,13 @@ with h5py.File(halos_filename) as data:
 print("Loading particle data")
 with h5py.File(particle_filename, "r") as particles:
     try:
+        # For Gadget runs, we need to re-correct the h-factors in the
+        # Velociraptor outputs.
+        hubble_param = float(particles["Header"].attrs["HubbleParam"])
+    except:
+        hubble_param = 1.0
+
+    try:
         gas_coordinates = particles["PartType0/Coordinates"][...]
     except:
         gas_coordinates = None
@@ -69,25 +76,31 @@ except:
 # Now we can run through each of the halos and do our job
 halos = []
 
+centers *= hubble_param
+radii *= hubble_param
+
 print("Querying trees and building FakeHalo objects")
 for halo, (center, radius) in enumerate(zip(centers, radii)):
     dmlist = np.array(
         dm_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
     )
 
+    if dmlist.size == 0:
+        continue
+
     try:
         glist = np.array(
             gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
         )
     except:
-        glist = np.array([])
+        glist = np.array([], dtype=int)
 
     try:
         slist = np.array(
             star_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
         )
     except:
-        slist = np.array([])
+        slist = np.array([], dtype=int)
 
     halos.append(
         lt.halos.FakeHalo(

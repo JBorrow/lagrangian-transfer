@@ -168,6 +168,89 @@ def mass_fraction_transfer_from_lr_data(
     }
 
 
+def mass_fraction_transfer_to_halo_data(
+    sim: Simulation, bins=None, average_func=np.mean
+):
+    """
+    Gets reduced data in the following format: fraction of mass in a given
+    lagrangian region that ends up in the corresponding halo, the fraction
+    of mass that ends up _outside_ any halo, and the fraction of mass that
+    ends up in _another_ halo.
+
+    There is no 'use' here as it only makes sense to combine all baryonic
+    components together.
+
+    The halo mass is taken as log10(M)
+
+    Gets a dictionary of the following form:
+
+    return = {
+      "lr_mass": centre of each halo mass bin,
+      "mass_fraction_to_halo": (mean) mass coming from each lagrangian region,
+      "mass_fraction_to_other_halo": (mean) mass coming from another lagrangian region,
+      "mass_fraction_to_outside_halo": (mean) mass fraction ending up outside any
+                                       lagrangian region,
+      "mass_fraction_to_halo_stddev": standard devation, rather than the mean,
+      "mass_fraction_to_other_halo_stddev": same as above,
+      "mass_fraction_to_outside_halo_stddev": same as above
+    }
+
+    These fractions come directly from the Simulation object that is given.
+
+    Bins should probably be given. If they are not, it is left up to numpy.
+    """
+
+    lagrangian_dm_mass = sim.dark_matter_mass_in_lagrangian
+
+    lagrangian_gas_mass = sim.gas_mass_in_lagrangian
+    mass_in_halo_from_lr = (
+        sim.gas_mass_in_halo_from_lagrangian + sim.stellar_mass_in_halo_from_lagrangian
+    )
+    mass_outside_halo_from_lr = (
+        sim.gas_mass_outside_halo_from_lagrangian
+        + sim.stellar_mass_outside_halo_from_lagrangian
+    )
+    # By definition this must be true (now we've combined baryonic mass)
+    mass_in_other_halo_from_lagrangian = (
+        lagrangian_gas_mass - mass_in_halo_from_lr - mass_outside_halo_from_lr
+    )
+
+    # Now reduce the data into fractions
+
+    fraction_to_halo = mass_in_halo_from_lr / lagrangian_gas_mass
+    fraction_to_other_halo = mass_in_other_halo_from_lagrangian / lagrangian_gas_mass
+    fraction_to_outside_halo = mass_outside_halo_from_lr / lagrangian_gas_mass
+
+    # If no bins, get them!!!
+
+    if bins is None:
+        _, bins = np.histogram(lagrangian_dm_mass)
+
+    # Use local routine to fully reduce the data into a single line
+
+    lr_mass, mass_fraction_to_halo, mass_fraction_to_halo_stddev = bin_x_by_y(
+        lagrangian_dm_mass, fraction_to_halo, bins, average_func
+    )
+
+    _, mass_fraction_to_other_halo, mass_fraction_to_other_halo_stddev = bin_x_by_y(
+        lagrangian_dm_mass, fraction_to_other_halo, bins, average_func
+    )
+
+    _, mass_fraction_to_outside_halo, mass_fraction_to_outside_stddev = bin_x_by_y(
+        lagrangian_dm_mass, fraction_to_outside_halo, bins, average_func
+    )
+
+    return {
+        "lr_mass": lr_mass,
+        "mass_fraction_to_halo": mass_fraction_to_halo,
+        "mass_fraction_to_other_halo": mass_fraction_to_other_halo,
+        "mass_fraction_to_outside_halo": mass_fraction_to_outside_halo,
+        "mass_fraction_to_halo_stddev": mass_fraction_to_halo_stddev,
+        "mass_fraction_to_other_halo_stddev": mass_fraction_to_other_halo_stddev,
+        "mass_fraction_to_outside_halo_stddev": mass_fraction_to_outside_stddev,
+    }
+
+
 def mass_fraction_transfer_from_lr_plot(
     sim: Simulation, bins=None, average_func=np.mean, use=("stellar", "gas")
 ):

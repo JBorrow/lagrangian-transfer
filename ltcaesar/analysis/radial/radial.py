@@ -34,6 +34,7 @@ import numpy as np
 
 from typing import Tuple
 from tqdm import tqdm
+from functools import lru_cache
 
 from ltcaesar.objects import Simulation
 
@@ -109,6 +110,7 @@ def get_radii_to_halo_center(coordinates: np.ndarray) -> np.array:
     return radii
 
 
+@lru_cache(maxsize=64)
 def get_relevant_baryonic_quantities(
     halo, simulation: Simulation, ptype="gas"
 ) -> Tuple[np.ndarray]:
@@ -137,6 +139,21 @@ def get_relevant_baryonic_quantities(
     return radii, masses, lagrangian_regions, halos
 
 
+@lru_cache(maxsize=64)
+def get_extra_baryonic_quantity(
+    halo, simulation: Simulation, quantity: str, ptype="gas"
+) -> np.ndarray:
+    """
+    Extracts any extra quantity you may wish to use, and indexes it
+    for the halo in a similar way for get_relevant_baryonic_quantities.
+    """
+
+    gas_mask, star_mask, dark_matter_mask = get_masks(halo, simulation)
+    mask = locals()[f"{ptype}_mask"]
+
+    return simulation.snapshot_end.baryonic_matter.read_extra_array(quantity, ptype)[mask]
+
+
 def find_halos_in_bin(
     lower: float, upper: float, simulation: Simulation, conversion=1e10 / 0.7
 ) -> np.ndarray:
@@ -154,8 +171,53 @@ def find_halos_in_bin(
     )
 
 
+def mass_fraction(mask, halo, simulation, ptype):
+    """
+    Finds the fraction of mass from inside, outside, and from other
+    lagrangian regions, in a given mass bin.
+    """
+
+    radii, masses, lagrangian_regions, halos = get_relevant_baryonic_quantities(
+        halo, simulation, ptype
+    )
+
+    relevant_lr = lagrangian_regions[mask]
+    relevant_halos = halos[mask]
+    # Use fractional masses
+    relevant_masses = masses[mask]
+    # These need to be normalized on a bin-by-bin basis
+    relevant_masses /= np.sum(relevant_masses)
+
+    assert np.isclose(
+        np.sum(relevant_masses), 1
+    ), f"Sum: {np.sum(relevant_masses)}, length: {len(relevant_masses)}"
+
+    from_own_lr = 0.0
+    from_other_lr = 0.0
+    from_outside_lr = 0.0
+
+    for lr, halo, mass in zip(relevant_lr, relevant_halos, relevant_masses):
+        if lr == halo:
+            from_own_lr += mass
+        elif lr == -1:
+            from_outside_lr += mass
+        elif lr != -1:
+            from_other_lr += mass
+        else:
+            raise Exception("Particle unassigned")
+
+    sum_of_all = from_own_lr + from_other_lr + from_outside_lr
+
+    assert np.isclose(sum_of_all, 1), (
+        f"From Own: {from_own_lr}, From Other: {from_other_lr} ",
+        f"From Outside: {from_outside_lr}, sum: {sum_of_all}.",
+    )
+
+    return from_own_lr, from_other_lr, from_outside_lr
+
+
 def run_analysis_on_individual_halo(
-    simulation: Simulation, halo, radial_bins, ptype="gas"
+    simulation: Simulation, halo, radial_bins, ptype="gas", bin_func=mass_fraction
 ) -> Tuple[np.ndarray]:
     """
     Run the analysis based on an individual halo to find the mass
@@ -173,9 +235,7 @@ def run_analysis_on_individual_halo(
     normalisation. 
     """
 
-    radii, masses, lagrangian_regions, halos = get_relevant_baryonic_quantities(
-        halo, simulation, ptype
-    )
+    radii, _, _, _ = get_relevant_baryonic_quantities(halo, simulation, ptype)
 
     # Normalize our radii by the virial radius
     radii /= np.max(radii)
@@ -191,39 +251,7 @@ def run_analysis_on_individual_halo(
         if np.sum(mask) == 0:
             raise NoMaskError
 
-        relevant_lr = lagrangian_regions[mask]
-        relevant_halos = halos[mask]
-        # Use fractional masses
-        relevant_masses = masses[mask]
-        # These need to be normalized on a bin-by-bin basis
-        relevant_masses /= np.sum(relevant_masses)
-
-        assert np.isclose(
-            np.sum(relevant_masses), 1
-        ), f"Sum: {np.sum(relevant_masses)}, length: {len(relevant_masses)}"
-
-        from_own_lr = 0.0
-        from_other_lr = 0.0
-        from_outside_lr = 0.0
-
-        for lr, halo, mass in zip(relevant_lr, relevant_halos, relevant_masses):
-            if lr == halo:
-                from_own_lr += mass
-            elif lr == -1:
-                from_outside_lr += mass
-            elif lr != -1:
-                from_other_lr += mass
-            else:
-                raise Exception("Particle unassigned")
-
-        sum_of_all = from_own_lr + from_other_lr + from_outside_lr
-
-        assert np.isclose(sum_of_all, 1), (
-            f"From Own: {from_own_lr}, From Other: {from_other_lr} ",
-            f"From Outside: {from_outside_lr}, sum: {sum_of_all}.",
-        )
-
-        return from_own_lr, from_other_lr, from_outside_lr
+        return bin_func(mask, halo, simulation, ptype)
 
     output = []
     output_used = []
@@ -249,6 +277,7 @@ def run_analysis_on_mass_bin(
     radial_bins,
     ptype="gas",
     conversion=1e10 / 0.7,
+    bin_func=mass_fraction
 ):
     """
     Run the analysis on an individual halo mass bin.
@@ -270,7 +299,7 @@ def run_analysis_on_mass_bin(
     for halo in tqdm(halos):
         try:
             individual_analyis, individual_analysis_used = run_analysis_on_individual_halo(
-                simulation, halo, radial_bins, ptype
+                simulation, halo, radial_bins, ptype, bin_func=bin_func
             )
 
             if np.sum(individual_analyis) == 0.0:
@@ -283,10 +312,9 @@ def run_analysis_on_mass_bin(
         except ValueError:
             # This halo has no gas in it, R.I.P. Skip it.
             continue
- 
+
     full_output = np.sum(profiles, axis=0) / normalization_factor
     # Get standard errors by assuming gaussianity
     standard_deviation = np.std(profiles, axis=0) / np.sqrt(normalization_factor)
 
     return full_output, standard_deviation
-
