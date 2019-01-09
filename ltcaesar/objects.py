@@ -759,6 +759,11 @@ class Simulation(object):
         self.gas_mass_outside_halo_from_lagrangian = np.zeros(self.n_groups)
         self.stellar_mass_outside_halo_from_lagrangian = np.zeros(self.n_groups)
 
+        # The mass inside other halos from a given lagrangian region.
+        self.dark_matter_mass_in_other_halos_from_lagrangian = np.zeros(self.n_groups)
+        self.gas_mass_in_other_halos_from_lagrangian = np.zeros(self.n_groups)
+        self.stellar_mass_in_other_halos_from_lagrangian = np.zeros(self.n_groups)
+
     def run_gas_analysis(self):
         """
         Runs the analysis (gas) - this is just a linear pass through all of the
@@ -796,6 +801,9 @@ class Simulation(object):
                 if lagrangian_region != -1:
                     # We've ended up in someone else's lagrangian
                     self.gas_mass_in_halo_from_other_lagrangian[group_id] += mass_end
+                    self.gas_mass_in_other_halos_from_lagrangian[
+                        lagrangian_region
+                    ] += mass_ini
                 else:
                     # We must be new to the game!
                     self.gas_mass_in_halo_from_outside_lagrangian[group_id] += mass_end
@@ -844,6 +852,9 @@ class Simulation(object):
                 if lagrangian_region != -1:
                     # We've ended up in someone else's lagrangian
                     self.stellar_mass_in_halo_from_other_lagrangian[group_id] += mass
+                    self.stellar_mass_in_other_halos_from_lagrangian[
+                        lagrangian_region
+                    ] += mass_ini
                 else:
                     # We must be new to the game!
                     self.stellar_mass_in_halo_from_outside_lagrangian[group_id] += mass
@@ -896,6 +907,9 @@ class Simulation(object):
                     self.dark_matter_mass_in_halo_from_other_lagrangian[
                         group_id
                     ] += mass
+                    self.dark_matter_mass_in_other_halos_from_lagrangian[
+                        lagrangian_region
+                    ] += mass_ini
                 else:
                     # We must be new to the game!
                     self.dark_matter_mass_in_halo_from_outside_lagrangian[
@@ -935,6 +949,7 @@ class Simulation(object):
             "mass_in_halo_from_outside_lagrangian",
             "mass_in_halo_from_other_lagrangian",
             "mass_outside_halo_from_lagrangian",
+            "mass_in_other_halos_from_lagrangian"
         ]
 
         header = ",".join(attributes)

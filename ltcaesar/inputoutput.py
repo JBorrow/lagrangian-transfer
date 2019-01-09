@@ -58,6 +58,7 @@ class FakeSimulation(object):
             "mass_in_halo_from_outside_lagrangian",
             "mass_in_halo_from_other_lagrangian",
             "mass_outside_halo_from_lagrangian",
+            "mass_in_other_halos_from_lagrangian",
         ]
 
         for data_type in data_types:
@@ -177,6 +178,7 @@ def write_data_to_file(filename, simulation: Simulation):
             "mass_in_halo_from_outside_lagrangian",
             "mass_in_halo_from_other_lagrangian",
             "mass_outside_halo_from_lagrangian",
+            "mass_in_other_halos_from_lagrangian",
         ]
 
         for data_type in data_types:
@@ -265,7 +267,7 @@ def write_data_to_file(filename, simulation: Simulation):
 
         dm_group.create_dataset(
             "lagrangian_regions",
-            data=simulation.snapshot_end.dark_matter.lagrangian_regions
+            data=simulation.snapshot_end.dark_matter.lagrangian_regions,
         )
 
     return
