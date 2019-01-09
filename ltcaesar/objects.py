@@ -739,21 +739,22 @@ class Simulation(object):
         particles.
         """
 
-        for group_id, lagrangian_region, mass in zip(
+        for group_id, lagrangian_region, mass_ini, mass_end in zip(
             tqdm(self.snapshot_end.baryonic_matter.gas_halos, desc="Analysing gas"),
             self.snapshot_end.baryonic_matter.gas_lagrangian_regions,
+            self.snapshot_ini.baryonic_matter.gas_masses,
             self.snapshot_end.baryonic_matter.gas_masses,
         ):
             # First, add on the halo mass
             try:
-                self.gas_mass_in_halo[group_id] += mass
+                self.gas_mass_in_halo[group_id] += mass_end
             except IndexError:
                 # Must be weird. Let's just forget about it.
                 pass
 
             # Add on mass to corresponding lagrangian region
             try:
-                self.gas_mass_in_lagrangian[lagrangian_region] += mass
+                self.gas_mass_in_lagrangian[lagrangian_region] += mass_ini
             except IndexError:
                 # Must be weird. Let's just forget about it.
                 pass
@@ -761,24 +762,24 @@ class Simulation(object):
             if group_id == lagrangian_region:
                 # We're in the same halo as LR
                 try:
-                    self.gas_mass_in_halo_from_lagrangian[group_id] += mass
+                    self.gas_mass_in_halo_from_lagrangian[group_id] += mass_end
                 except IndexError:
                     # Wow you are so uninteresting, particle.
                     pass
             elif group_id != -1:
                 if lagrangian_region != -1:
                     # We've ended up in someone else's lagrangian
-                    self.gas_mass_in_halo_from_other_lagrangian[group_id] += mass
+                    self.gas_mass_in_halo_from_other_lagrangian[group_id] += mass_end
                 else:
                     # We must be new to the game!
-                    self.gas_mass_in_halo_from_outside_lagrangian[group_id] += mass
+                    self.gas_mass_in_halo_from_outside_lagrangian[group_id] += mass_end
             else:
                 # We've ended up outside any lagrangian region
                 if lagrangian_region != -1:
                     # We _used_ to be in a lagrangian region
                     self.gas_mass_outside_halo_from_lagrangian[
                         lagrangian_region
-                    ] += mass
+                    ] += mass_end
                 else:
                     # We were never important :(
                     pass
