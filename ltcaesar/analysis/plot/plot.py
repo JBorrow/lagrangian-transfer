@@ -200,7 +200,7 @@ def mass_fraction_transfer_to_halo_data(
     Bins should probably be given. If they are not, it is left up to numpy.
     """
 
-    lagrangian_dm_mass = sim.dark_matter_mass_in_lagrangian
+    lagrangian_dm_mass = np.log10(sim.dark_matter_mass_in_lagrangian)
 
     lagrangian_gas_mass = sim.gas_mass_in_lagrangian
     mass_in_halo_from_lr = (
