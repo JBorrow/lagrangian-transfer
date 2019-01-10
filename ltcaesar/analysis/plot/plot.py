@@ -202,18 +202,19 @@ def mass_fraction_transfer_to_halo_data(
 
     lagrangian_dm_mass = np.log10(sim.dark_matter_mass_in_lagrangian)
 
-    lagrangian_gas_mass = sim.gas_mass_in_lagrangian
+    lagrangian_gas_mass = sim.gas_mass_in_lagrangian[mask]
     mass_in_halo_from_lr = (
         sim.gas_mass_in_halo_from_lagrangian + sim.stellar_mass_in_halo_from_lagrangian
-    )
+    )[mask]
     mass_outside_halo_from_lr = (
         sim.gas_mass_outside_halo_from_lagrangian
         + sim.stellar_mass_outside_halo_from_lagrangian
-    )
+    )[mask]
     # By definition this must be true (now we've combined baryonic mass)
     mass_in_other_halo_from_lagrangian = (
-        lagrangian_gas_mass - mass_in_halo_from_lr - mass_outside_halo_from_lr
-    )
+        sim.gas_mass_in_other_halos_from_lagrangian
+        + sim.stellar_mass_in_other_halos_from_lagrangian
+    )[mask]
 
     # Now reduce the data into fractions
 
@@ -224,7 +225,7 @@ def mass_fraction_transfer_to_halo_data(
     # If no bins, get them!!!
 
     if bins is None:
-        _, bins = np.histogram(lagrangian_dm_mass)
+        _, bins = np.histogram(masked_halo_masses)
 
     # Use local routine to fully reduce the data into a single line
 
