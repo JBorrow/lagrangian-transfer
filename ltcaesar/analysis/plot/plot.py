@@ -202,7 +202,10 @@ def mass_fraction_transfer_to_halo_data(
 
     # First, we need to mask out the halos with no gas or stellar content.
 
-    masks = [getattr(sim, "{}_mass_in_halo".format(x)) != 0 for x in ["gas", "stellar"]]
+    masks = [
+        getattr(sim, "{}_mass_in_halo".format(x)) != 0
+        for x in ["gas", "stellar", "dark_matter"]
+    ]
     mask = np.logical_and.reduce(masks)
 
     lagrangian_dm_mass = np.log10(sim.dark_matter_mass_in_lagrangian)[mask]
