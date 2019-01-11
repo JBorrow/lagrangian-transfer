@@ -26,7 +26,7 @@ output_filename = sys.argv[3]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
-with h5py.File(halos_filename) as data:
+with h5py.File(halos_filename, "r") as data:
     centers = np.array(
         [
             data["Xc"][...],
