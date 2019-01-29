@@ -48,7 +48,11 @@ def parse_halos_and_coordinates(
     indicies_dtype = cut_indicies.dtype
 
     # Do first pass to find out how many particles are in each halo
-    _, number_of_particles_in_each_halo = np.unique(cut_halos, return_counts=True)
+    unique_halos, number_of_particles_in_each_halo_raw = np.unique(cut_halos, return_counts=True)
+    
+    # We need to make sure that unique halos is contiguous.
+    number_of_particles_in_each_halo = np.zeros(unique_halos.max() + 1, dtype=int)
+    number_of_particles_in_each_halo[unique_halos] = number_of_particles_in_each_halo_raw
 
     # Now we can allocate our list of arrays ready to fill it up
     output = np.array(
@@ -112,7 +116,11 @@ def find_all_halo_centers(halos: np.array, coordinates: np.ndarray, boxsize=None
             # Periodic boundary conditions, oh jeez.
             # First, we select one of the particles to act as a reference
             # point for all relative/periodic calculations.
-            relative_coord = halo_coordinates[0]
+            try:
+                relative_coord = halo_coordinates[0]
+            except IndexError:
+                # Must be an empty boi
+                continue
             # This gets us the coordinates in some semblence of "real space"
             # where e.g. a sphere split over the boundary becomes a sphere again
             relative_offsets = halo_coordinates - relative_coord

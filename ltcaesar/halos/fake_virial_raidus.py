@@ -32,7 +32,10 @@ def change_rvir_of_lagrangian_regions_only(simulation, factor=1.2):
 
     # Now find the particles that lie within that radii
     # Need to build a tree for the dark matter
-    tree = KDTree(simulation.snapshot_end.dark_matter.coordinates)
+    tree = KDTree(
+        simulation.snapshot_end.dark_matter.coordinates,
+        boxsize=simulation.snapshot_end.header["BoxSize"]
+    )
 
     # Now need to recover the actual halo numbers
     cut_halos = simulation.snapshot_end.dark_matter.halos[
