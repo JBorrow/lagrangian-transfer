@@ -79,6 +79,8 @@ halos = []
 centers *= hubble_param
 radii *= hubble_param
 
+diff = 0
+
 print("Querying trees and building FakeHalo objects")
 for halo, (center, radius) in enumerate(zip(centers, radii)):
     dmlist = np.array(
@@ -86,6 +88,7 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
     )
 
     if dmlist.size == 0:
+        diff += 1
         continue
 
     try:
@@ -110,7 +113,7 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
             ngas=len(glist),
             slist=slist,
             nstar=len(slist),
-            GroupID=halo,
+            GroupID=halo-diff,
         )
     )
 
