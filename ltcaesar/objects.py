@@ -395,6 +395,7 @@ class BaryonicParticles(object):
         except IndexError:
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
+            star_current_id = -1
 
         # The _first_ id needs truncating just in case.
         if self.truncate_ids is not None:
@@ -442,6 +443,10 @@ class BaryonicParticles(object):
                         gas_current_id = -1
                         truncated_gas_id = -1
                         gas_current_index -= 1
+
+            # If we have no stars, let's skip this bit:
+            if star_current_id == -1:
+                continue
 
             while particle_id == truncated_star_id:
                 star_lagrangian_regions[star_current_index] = lr
