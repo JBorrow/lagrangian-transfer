@@ -395,6 +395,7 @@ class BaryonicParticles(object):
         except IndexError:
             print("No star particles found. Consider checking this.")
             gas_lagrangian_regions = lagrangian_regions
+            star_current_id = -1
 
         # The _first_ id needs truncating just in case.
         if self.truncate_ids is not None:
@@ -845,7 +846,7 @@ class Simulation(object):
 
             # Add on mass to corresponding lagrangian region
             try:
-                self.stellar_mass_in_lagrangian[lagrangian_region] += mass
+                self.stellar_mass_in_lagrangian[lagrangian_region] += mass_ini
             except IndexError:
                 # Must be -1
                 pass
