@@ -39,7 +39,10 @@ def read_particles(velociraptor_file, particle_file):
 
     with h5py.File(velociraptor_file, "r") as file:
         for name, number in switch.items():
-            output_data[name] = file[f"PartType{number}/GroupID"][...]
+            try:
+                output_data[name] = file[f"PartType{number}/GroupID"][...]
+            except:
+                pass
 
     return output_data
 
@@ -50,7 +53,10 @@ data = read_particles(input_filename, particle_filename)
 full_output = {}
 
 for particle_type in ["gas", "dark_matter", "stellar"]:
-    this_data = data[particle_type]
+    try:
+        this_data = data[particle_type]
+    except:
+        continue
 
     # We are going to index this dictionary with the halo data.
     # Note we need to store the current _index_ in the halo array, as there
@@ -105,7 +111,7 @@ for halo_id in tqdm(halo_ids):
     # heavily in the future, but right now I will just leave this.
     # Note: you could pre-build a list of only the occupied halos by running
     # through all of the halo ids.
-    if (nstar != 0) and (ngas != 0) and (ndm != 0):
+    if (ngas != 0) and (ndm != 0):
         halo_list.append(
             lt.halos.FakeHalo(
                 dmlist=dmlist,

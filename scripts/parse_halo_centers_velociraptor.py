@@ -35,7 +35,7 @@ with h5py.File(halos_filename, "r") as data:
         ]
     ).T
 
-    radii = data["Rvir"][...]
+    radii = data["R_BN98"][...]
 
     ids = np.arange(0, len(radii))
 
@@ -76,31 +76,38 @@ except:
 # Now we can run through each of the halos and do our job
 halos = []
 
+print("Velociraptor halo organiser:")
+
 centers *= hubble_param
+centers %= boxsize
 radii *= hubble_param
+
+print("Particle max position: {}".format(dm_coordinates.max()))
+print("Halo center max position: {}".format(centers.max()))
+print("Halo max radius: {}".format(radii.max()))
 
 diff = 0
 
 print("Querying trees and building FakeHalo objects")
 for halo, (center, radius) in enumerate(zip(centers, radii)):
     dmlist = np.array(
-        dm_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
+        dm_tree.query_ball_point(x=center, r=radius)
     )
 
-    if dmlist.size == 0:
+    if dmlist.size <= 0:
         diff += 1
         continue
 
     try:
         glist = np.array(
-            gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
+            gas_tree.query_ball_point(x=center, r=radius)
         )
     except:
         glist = np.array([], dtype=int)
 
     try:
         slist = np.array(
-            star_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
+            star_tree.query_ball_point(x=center, r=radius)
         )
     except:
         slist = np.array([], dtype=int)
@@ -116,6 +123,13 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
             GroupID=halo-diff,
         )
     )
+
+# Now that we've got them in there, we need to sort them by halo mass.
+halos = sorted(halos, key=lambda x: x.ndm, reverse=True)
+# Now assign them group IDs in that order
+for GroupID, halo in enumerate(halos): halo.GroupID = GroupID
+
+
 
 halo_catalogue = lt.FakeCaesar(halos=halos, nhalos=len(halos))
 
