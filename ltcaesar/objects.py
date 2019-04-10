@@ -444,6 +444,10 @@ class BaryonicParticles(object):
                         truncated_gas_id = -1
                         gas_current_index -= 1
 
+            # If we have no stars, let's skip this bit:
+            if star_current_id == -1:
+                continue
+
             while particle_id == truncated_star_id:
                 star_lagrangian_regions[star_current_index] = lr
                 star_current_index += 1
