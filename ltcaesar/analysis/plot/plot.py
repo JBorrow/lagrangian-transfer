@@ -210,7 +210,7 @@ def mass_fraction_transfer_to_halo_data(
 
     lagrangian_dm_mass = np.log10(sim.dark_matter_mass_in_lagrangian)[mask]
 
-    lagrangian_gas_mass = sim.gas_mass_in_lagrangian[mask]
+    lagrangian_gas_mass = (sim.gas_mass_in_lagrangian[mask] + sim.stellar_mass_in_lagrangian[mask])
     mass_in_halo_from_lr = (
         sim.gas_mass_in_halo_from_lagrangian + sim.stellar_mass_in_halo_from_lagrangian
     )[mask]
