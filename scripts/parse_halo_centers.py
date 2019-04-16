@@ -25,10 +25,12 @@ output_filename = sys.argv[3]
 
 # Parse the input halos data to a usable format
 print("Loading catalogue data")
-data = np.loadtxt(halos_filename, delimiter="\t", skiprows=1, usecols=(0, 1, 5, 6, 7, 11)).T 
-host_halos_mask = (data[1].astype(int) == -1)
+data = np.loadtxt(
+    halos_filename, delimiter="\t", skiprows=1, usecols=(0, 1, 5, 6, 7, 11)
+).T
+host_halos_mask = data[1].astype(int) == -1
 
-centers = (data[2:5].T[host_halos_mask])
+centers = data[2:5].T[host_halos_mask]
 radii = data[5][host_halos_mask]
 
 # We want continuous IDs forget about the ones in the file
@@ -54,15 +56,9 @@ halos = []
 
 print("Querying trees and building FakeHalo objects")
 for halo, (center, radius) in enumerate(zip(centers, radii)):
-    dmlist = np.array(
-        dm_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
-    )
-    glist = np.array(
-        gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
-    )
-    slist = np.array(
-        star_tree.query_ball_point(x=center, r=radius, n_jobs=-1)
-    )
+    dmlist = np.array(dm_tree.query_ball_point(x=center, r=radius, n_jobs=-1))
+    glist = np.array(gas_tree.query_ball_point(x=center, r=radius, n_jobs=-1))
+    slist = np.array(star_tree.query_ball_point(x=center, r=radius, n_jobs=-1))
 
     halos.append(
         lt.halos.FakeHalo(
@@ -73,6 +69,8 @@ for halo, (center, radius) in enumerate(zip(centers, radii)):
             slist=slist,
             nstar=len(slist),
             GroupID=halo,
+            center=center,
+            rvir=radius,
         )
     )
 

@@ -94,6 +94,8 @@ for halo_id in tqdm(range(maximal_halo_id + 1)):
             slist=slist,
             nstar=nstar,
             GroupID=halo_id,
+            center=None,
+            rvir=None,
         )
     )
 

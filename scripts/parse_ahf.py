@@ -155,7 +155,7 @@ for halo_id in tqdm(halo_ids):
         nstar = 0
 
     # Now fill the object
-    
+
     # With AHF, there are a _lot_ of empty halos. This could be optimized quite
     # heavily in the future, but right now I will just leave this.
     # Note: you could pre-build a list of only the occupied halos by running
@@ -170,13 +170,16 @@ for halo_id in tqdm(halo_ids):
                 slist=slist,
                 nstar=nstar,
                 GroupID=halo_id,
+                center=None,
+                rvir=None,
             )
         )
 
 # Now that we've got them in there, we need to sort them by halo mass.
 halo_list = sorted(halo_list, key=lambda x: x.ndm, reverse=True)
 # Now assign them group IDs in that order
-for GroupID, halo in enumerate(halo_list): halo.GroupID = GroupID
+for GroupID, halo in enumerate(halo_list):
+    halo.GroupID = GroupID
 
 # Now, let's try to make our FakeCaesar object.
 

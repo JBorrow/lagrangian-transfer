@@ -67,6 +67,8 @@ class FakeHalo(object):
         slist: np.ndarray,
         nstar: int,
         GroupID,
+	center: np.ndarray,
+	rvir: float,
     ):
         self.dmlist = dmlist
         self.ndm = ndm
@@ -75,6 +77,8 @@ class FakeHalo(object):
         self.slist = slist
         self.nstar = nstar
         self.GroupID = GroupID
+        self.center = center
+        self.rvir = rvir
 
         return
 
